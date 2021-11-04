@@ -70,6 +70,19 @@ void
     unsigned KernelFlags
     );
 
+typedef
+void
+(MLASCALL MLAS_CONV_SYM_DEPTHWISE_ROUTINE_KERNELSIZE_9)(
+    int8_t const* const* InputIndirection,
+    int8_t const* Filter,
+    size_t Channels,
+    int8_t* Output,
+    size_t OutputCount,
+    MLAS_CONV_SYM_POST_PROCESS_PARAMS const* PostProcessParams,
+    unsigned KernelFlags
+    );
+
+
 extern "C" {
 
 #if defined(MLAS_TARGET_AMD64)
@@ -83,6 +96,7 @@ extern "C" {
     MLAS_CONV_SYM_DEPTHWISE_KERNEL MlasConvSymDepthwiseKernelAvx512Vnni;
 #elif defined(MLAS_TARGET_ARM64)
     MLAS_CONV_SYM_DEPTHWISE_KERNEL MlasConvSymDepthwiseKernelNeon;
+    MLAS_CONV_SYM_DEPTHWISE_ROUTINE_KERNELSIZE_9 MlasConvSymDepthwiseS8S8KernelSize9Arm64;
 #endif
 
 }
@@ -396,6 +410,8 @@ MlasConvSym(
 
 #if defined(MLAS_TARGET_ARM64)
 
+// After more routines come, could put a pointer into MlasPlatform.
+
 template <typename XYInt8_t>
 void
 MlasConvSymDepthwise_KernelSize9(
@@ -408,13 +424,13 @@ MlasConvSymDepthwise_KernelSize9(
     unsigned KernelFlags
 ) {
     if constexpr (std::is_signed<XYInt8_t>::value) {
-        MlasConvSymDepthwise_u8s8_KernelSize9(
+        MlasConvSymDepthwiseS8S8KernelSize9Arm64(
             InputIndirection, Filter, Channels, Output,
             OutputCount, PostProcessParams, KernelFlags
         );
     } else {
-        MlasConvSymDepthwise_s8s8_KernelSize9(
-            InputIndirection, Filter, Channels, Output,
+        MlasConvSymDepthwiseS8S8KernelSize9Arm64(
+            (int8_t const* const*)InputIndirection, Filter, Channels, (int8_t*)Output,
             OutputCount, PostProcessParams, KernelFlags
         );
     }
@@ -438,6 +454,20 @@ MlasConvSymDepthwise(
     MLAS_CONV_SYM_POST_PROCESS_PARAMS PostProcessParams = {};
 
     MlasConvSymSetOutputZeroPoint(PostProcessParams, Params.OutputZeroPoint);
+
+#if defined(MLAS_TARGET_ARM64)
+
+    if (Params.KernelSize == 9) {
+        PostProcessParams.Bias = Params.Bias;
+        PostProcessParams.Scale = Params.Scale;
+        MlasConvSymDepthwise_KernelSize9(
+            Params.InputIndirection, (int8_t const*)Params.Filter, Params.OutputChannels, Params.Output,
+            Params.OutputCount, &PostProcessParams, KernelFlags
+        );
+        return;
+    }
+
+#endif
 
     const size_t KernelChannelCount = ConvSymDispatch->KernelDepthwiseChannelCount;
     const size_t KernelOutputCount = ConvSymDispatch->KernelDepthwiseOutputCount;
