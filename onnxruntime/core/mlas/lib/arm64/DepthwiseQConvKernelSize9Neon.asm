@@ -32,17 +32,17 @@ Abstract:
 #define  MLAS_CONV_SYM_FLAG_INPUT_DIRECT_BIT_INDEX         0
 #define  MLAS_CONV_SYM_FLAG_PER_CHANNEL_SCALE_BIT_INDEX    1
 
-#define  MlasConvSymDepthwise_s8s8_KernelSize9_backup_x19_x20  0
-#define  MlasConvSymDepthwise_s8s8_KernelSize9_backup_x21_x22  16
-#define  MlasConvSymDepthwise_s8s8_KernelSize9_backup_x23_x24  32
-#define  MlasConvSymDepthwise_s8s8_KernelSize9_backup_x25_x26  48
-#define  MlasConvSymDepthwise_s8s8_KernelSize9_backup_x27_x28  64
-#define  MlasConvSymDepthwise_s8s8_KernelSize9_backup_d8_d9    80
-#define  MlasConvSymDepthwise_s8s8_KernelSize9_backup_d10_d11  96
-#define  MlasConvSymDepthwise_s8s8_KernelSize9_backup_d12_d13  112
-#define  MlasConvSymDepthwise_s8s8_KernelSize9_backup_d14_d15  128
-#define  MlasConvSymDepthwise_s8s8_KernelSize9_SavedRegisters  144
-#define  MlasConvSymDepthwise_s8s8_KernelSize9_SavedRegisters_Neg -144
+#define  MlasConvSymDepthwiseS8S8KernelSize9_backup_x19_x20  0
+#define  MlasConvSymDepthwiseS8S8KernelSize9_backup_x21_x22  16
+#define  MlasConvSymDepthwiseS8S8KernelSize9_backup_x23_x24  32
+#define  MlasConvSymDepthwiseS8S8KernelSize9_backup_x25_x26  48
+#define  MlasConvSymDepthwiseS8S8KernelSize9_backup_x27_x28  64
+#define  MlasConvSymDepthwiseS8S8KernelSize9_backup_d8_d9    80
+#define  MlasConvSymDepthwiseS8S8KernelSize9_backup_d10_d11  96
+#define  MlasConvSymDepthwiseS8S8KernelSize9_backup_d12_d13  112
+#define  MlasConvSymDepthwiseS8S8KernelSize9_backup_d14_d15  128
+#define  MlasConvSymDepthwiseS8S8KernelSize9_SavedRegisters  144
+#define  MlasConvSymDepthwiseS8S8KernelSize9_SavedRegisters_Neg -144
 
 
         TEXTAREA
@@ -76,17 +76,17 @@ Return Value:
 
 --*/
 
-        NESTED_ENTRY MlasConvSymDepthwise_s8s8_KernelSize9
+        NESTED_ENTRY MlasConvSymDepthwiseS8S8KernelSize9Arm64
         
-        PROLOG_SAVE_REG_PAIR      x19, x20, #MlasConvSymDepthwise_s8s8_KernelSize9_SavedRegisters_Neg !
-        PROLOG_SAVE_REG_PAIR      x21, x22, #MlasConvSymDepthwise_s8s8_KernelSize9_backup_x21_x22
-        PROLOG_SAVE_REG_PAIR      x23, x24, #MlasConvSymDepthwise_s8s8_KernelSize9_backup_x23_x24
-        PROLOG_SAVE_REG_PAIR      x25, x26, #MlasConvSymDepthwise_s8s8_KernelSize9_backup_x25_x26
-        PROLOG_SAVE_REG_PAIR      x27, x28, #MlasConvSymDepthwise_s8s8_KernelSize9_backup_x27_x28
-        PROLOG_SAVE_REG_PAIR      d8, d9, #MlasConvSymDepthwise_s8s8_KernelSize9_backup_d8_d9
-        PROLOG_SAVE_REG_PAIR      d10, d11, #MlasConvSymDepthwise_s8s8_KernelSize9_backup_d10_d11
-        PROLOG_SAVE_REG_PAIR      d12, d13, #MlasConvSymDepthwise_s8s8_KernelSize9_backup_d12_d13
-        PROLOG_SAVE_REG_PAIR      d14, d15, #MlasConvSymDepthwise_s8s8_KernelSize9_backup_d14_d15
+        PROLOG_SAVE_REG_PAIR      x19, x20, #MlasConvSymDepthwiseS8S8KernelSize9_SavedRegisters_Neg !
+        PROLOG_SAVE_REG_PAIR      x21, x22, #MlasConvSymDepthwiseS8S8KernelSize9_backup_x21_x22
+        PROLOG_SAVE_REG_PAIR      x23, x24, #MlasConvSymDepthwiseS8S8KernelSize9_backup_x23_x24
+        PROLOG_SAVE_REG_PAIR      x25, x26, #MlasConvSymDepthwiseS8S8KernelSize9_backup_x25_x26
+        PROLOG_SAVE_REG_PAIR      x27, x28, #MlasConvSymDepthwiseS8S8KernelSize9_backup_x27_x28
+        PROLOG_SAVE_REG_PAIR      d8, d9, #MlasConvSymDepthwiseS8S8KernelSize9_backup_d8_d9
+        PROLOG_SAVE_REG_PAIR      d10, d11, #MlasConvSymDepthwiseS8S8KernelSize9_backup_d10_d11
+        PROLOG_SAVE_REG_PAIR      d12, d13, #MlasConvSymDepthwiseS8S8KernelSize9_backup_d12_d13
+        PROLOG_SAVE_REG_PAIR      d14, d15, #MlasConvSymDepthwiseS8S8KernelSize9_backup_d14_d15
 
         ldr     x7, [x5, #ConvSymDepthwisePostProcessParams_Bias]
         ldr     x8, [x5, #ConvSymDepthwisePostProcessParams_Scale]
@@ -96,7 +96,7 @@ Return Value:
         ins     v13.d[1], x8            // Scale
         dup     v0.8h, v0.h[0]          // v0.8h <--- vector for output zero point
 
-        tbnz    x6, MLAS_CONV_SYM_FLAG_PER_CHANNEL_SCALE_BIT_INDEX, MlasConvSymDepthwise_s8s8_KernelSize9_SkipPerTensorScaleInit
+        tbnz    x6, MLAS_CONV_SYM_FLAG_PER_CHANNEL_SCALE_BIT_INDEX, MlasConvSymDepthwiseS8S8KernelSize9_SkipPerTensorScaleInit
         ldr     x9, [x5, #ConvSymDepthwisePostProcessParams_Scale]
         ldr     s1, [x9]               // load scale val
         dup     v1.4s, v1.s[0]
@@ -104,12 +104,12 @@ Return Value:
         mov     v3.16b, v1.16b
         mov     v4.16b, v1.16b
 
-MlasConvSymDepthwise_s8s8_KernelSize9_SkipPerTensorScaleInit
+MlasConvSymDepthwiseS8S8KernelSize9_SkipPerTensorScaleInit
 
         add     x9, x3, x2              // x9 <---- Ouput1
-        cbz     x4, MlasConvSymDepthwise_s8s8_KernelSize9_Exit
+        cbz     x4, MlasConvSymDepthwiseS8S8KernelSize9_Exit
 
-MlasConvSymDepthwise_s8s8_KernelSize9_OutputLoop
+MlasConvSymDepthwiseS8S8KernelSize9_OutputLoop
         ldp     x20, x21, [x0], #72     // input ptrs for Output0
         ldp     x22, x23, [x0, #-56]
         sub     x4, x4, #1
@@ -117,16 +117,16 @@ MlasConvSymDepthwise_s8s8_KernelSize9_OutputLoop
         ldp     x26, x27, [x0, #-24]
         ldur    x28, [x0, #-8]
         
-        cbz     x4, MlasConvSymDepthwise_s8s8_KernelSize9_Dup_Inputs
+        cbz     x4, MlasConvSymDepthwiseS8S8KernelSize9_Dup_Inputs
         ldp     x10, x11, [x0], #72     // input ptrs for Output0
         ldp     x12, x13, [x0, #-56]
         sub     x4, x4, #1
         ldp     x14, x15, [x0, #-40]
         ldp     x16, x17, [x0, #-24]
         ldur    x19, [x0, #-8]
-        b       MlasConvSymDepthwise_s8s8_KernelSize9_Loaded_Input
+        b       MlasConvSymDepthwiseS8S8KernelSize9_Loaded_Input
 
-MlasConvSymDepthwise_s8s8_KernelSize9_Dup_Inputs
+MlasConvSymDepthwiseS8S8KernelSize9_Dup_Inputs
         mov     x9, x3                  // Output1 <-- Output0
         mov     x10, x20
         mov     x11, x21
@@ -138,17 +138,17 @@ MlasConvSymDepthwise_s8s8_KernelSize9_Dup_Inputs
         mov     x17, x27
         mov     x19, x28
 
-MlasConvSymDepthwise_s8s8_KernelSize9_Loaded_Input
+MlasConvSymDepthwiseS8S8KernelSize9_Loaded_Input
 
         eor     x8, x8, x8              // Processed channels
-        mov     x1, v12.D[0]            // filter
-        mov     x5, v13.D[0]            // bias
-        mov     x7, v13.D[1]            // scale
+        umov    x1, v12.D[0]            // filter
+        umov    x5, v13.D[0]            // bias
+        umov    x7, v13.D[1]            // scale
     
         cmp     x8, x2                  // Save one register by not using count down to zero here
-        bhs     MlasConvSymDepthwise_s8s8_KernelSize9_Finish_Channels16_Loop
+        bhs     MlasConvSymDepthwiseS8S8KernelSize9_Finish_Channels16_Loop
 
-MlasConvSymDepthwise_s8s8_KernelSize9_Channels16_Loop
+MlasConvSymDepthwiseS8S8KernelSize9_Channels16_Loop
         ldr     q10, [x1]               // vk0
         ldr     q16, [x20, x8]          // out0 vi0
         ldr     q17, [x10, x8]          // out1 vi0
@@ -226,6 +226,7 @@ MlasConvSymDepthwise_s8s8_KernelSize9_Channels16_Loop
         ldr     q14, [x1, x2]           // vk7
         ldr     q22, [x27, x8]          // out0 vi7
         ldr     q23, [x17, x8]          // out1 vi7
+        add     x1, x1, x2, LSL #1
         
         smlal   v24.8h, v14.8b, v20.8b
         smlal2  v25.8h, v14.16b, v20.16b
@@ -246,15 +247,15 @@ MlasConvSymDepthwise_s8s8_KernelSize9_Channels16_Loop
         saddw   v8.4s, v8.4s, v27.4h
         saddw2  v9.4s, v9.4s, v27.8h
 
-        ldr     q10, [x1, x2, LSL #1]   // vk8
+        ldr     q10, [x1, x2]           // vk8
         ldr     q20, [x28, x8]          // out0 vi8
         ldr     q21, [x19, x8]          // out1 vi8
 
-        tbnz    x6, #MLAS_CONV_SYM_FLAG_PER_CHANNEL_SCALE_BIT_INDEX, DonePerChannelScaleLoad_MlasConvSymDepthwise_s8s8_KernelSize9
+        tbnz    x6, #MLAS_CONV_SYM_FLAG_PER_CHANNEL_SCALE_BIT_INDEX, DonePerChannelScaleLoad_MlasConvSymDepthwiseS8S8KernelSize9
         ldp     q1, q2, [x7], #64     // scale 0-7 for outs
         ldp     q3, q4, [x7, #-32]    // scale 8-15 for outs
 
-DonePerChannelScaleLoad_MlasConvSymDepthwise_s8s8_KernelSize9
+DonePerChannelScaleLoad_MlasConvSymDepthwiseS8S8KernelSize9
         saddw   v16.4s, v16.4s, v28.4h
         saddw2  v17.4s, v17.4s, v28.8h
         saddw   v18.4s, v18.4s, v29.4h
@@ -330,26 +331,26 @@ DonePerChannelScaleLoad_MlasConvSymDepthwise_s8s8_KernelSize9
         str     q6, [x9, x8]
         add     x8, x8, #16
         cmp     x8, x2
-        blo     MlasConvSymDepthwise_s8s8_KernelSize9_Channels16_Loop
+        blo     MlasConvSymDepthwiseS8S8KernelSize9_Channels16_Loop
 
-MlasConvSymDepthwise_s8s8_KernelSize9_Finish_Channels16_Loop
+MlasConvSymDepthwiseS8S8KernelSize9_Finish_Channels16_Loop
         add     x3, x3, x2, LSL #1
         add     x9, x9, x2, LSL #1
-        cbnz    x4, MlasConvSymDepthwise_s8s8_KernelSize9_OutputLoop
+        cbnz    x4, MlasConvSymDepthwiseS8S8KernelSize9_OutputLoop
 
-Exit_MlasConvSymDepthwise_s8s8_KernelSize9
-        EPILOG_RESTORE_REG_PAIR      d14, d15, #MlasConvSymDepthwise_s8s8_KernelSize9_backup_d14_d15
-        EPILOG_RESTORE_REG_PAIR      d12, d13, #MlasConvSymDepthwise_s8s8_KernelSize9_backup_d12_d13
-        EPILOG_RESTORE_REG_PAIR      d10, d11, #MlasConvSymDepthwise_s8s8_KernelSize9_backup_d10_d11
-        EPILOG_RESTORE_REG_PAIR      d8, d9, #MlasConvSymDepthwise_s8s8_KernelSize9_backup_d8_d9
-        EPILOG_RESTORE_REG_PAIR      x27, x28, #MlasConvSymDepthwise_s8s8_KernelSize9_backup_x27_x28
-        EPILOG_RESTORE_REG_PAIR      x25, x26, #MlasConvSymDepthwise_s8s8_KernelSize9_backup_x25_x26
-        EPILOG_RESTORE_REG_PAIR      x23, x24, #MlasConvSymDepthwise_s8s8_KernelSize9_backup_x23_x24
-        EPILOG_RESTORE_REG_PAIR      x21, x22, #MlasConvSymDepthwise_s8s8_KernelSize9_backup_x21_x22
-        EPILOG_RESTORE_REG_PAIR      x19, x20, #MlasConvSymDepthwise_s8s8_KernelSize9_SavedRegisters !
+MlasConvSymDepthwiseS8S8KernelSize9_Exit
+        EPILOG_RESTORE_REG_PAIR      d14, d15, #MlasConvSymDepthwiseS8S8KernelSize9_backup_d14_d15
+        EPILOG_RESTORE_REG_PAIR      d12, d13, #MlasConvSymDepthwiseS8S8KernelSize9_backup_d12_d13
+        EPILOG_RESTORE_REG_PAIR      d10, d11, #MlasConvSymDepthwiseS8S8KernelSize9_backup_d10_d11
+        EPILOG_RESTORE_REG_PAIR      d8, d9, #MlasConvSymDepthwiseS8S8KernelSize9_backup_d8_d9
+        EPILOG_RESTORE_REG_PAIR      x27, x28, #MlasConvSymDepthwiseS8S8KernelSize9_backup_x27_x28
+        EPILOG_RESTORE_REG_PAIR      x25, x26, #MlasConvSymDepthwiseS8S8KernelSize9_backup_x25_x26
+        EPILOG_RESTORE_REG_PAIR      x23, x24, #MlasConvSymDepthwiseS8S8KernelSize9_backup_x23_x24
+        EPILOG_RESTORE_REG_PAIR      x21, x22, #MlasConvSymDepthwiseS8S8KernelSize9_backup_x21_x22
+        EPILOG_RESTORE_REG_PAIR      x19, x20, #MlasConvSymDepthwiseS8S8KernelSize9_SavedRegisters !
         EPILOG_RETURN
 
 
-        NESTED_END MlasConvSymDepthwiseKernelNeon
+        NESTED_END MlasConvSymDepthwiseS8S8KernelSize9Arm64
 
         END
