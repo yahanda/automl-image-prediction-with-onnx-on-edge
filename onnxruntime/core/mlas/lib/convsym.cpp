@@ -207,13 +207,13 @@ MlasConvSymPackWSize(
     if (ConvSymDispatch == nullptr) {
 
 #if defined(MLAS_TARGET_ARM64)
-        // After convsym enanled, directly return 0 here as before
-        if (!(InputChannels == 1 && OutputChannels == 1 
-                && (GroupCount == (GroupCount + 15) & ~15) &&
-                KernelSize == 9)) {
-            return 0;
+        // After convsym enanled, remove logic here
+        if ((InputChannels == 1 && OutputChannels == 1 && ((GroupCount & 15) == 0)
+            && KernelSize == 9)) {
+            return GroupCount * KernelSize;
         }
 #endif
+        return 0;
     }
 
     if (GroupCount > 1) {
@@ -420,7 +420,7 @@ MlasConvSymDepthwise(
 
 #if defined(MLAS_TARGET_ARM64)
 
-    if (Params.KernelSize == 9 && (Params.OutputChannels + 15 & ~15) == Params.OutputChannels) {
+    if (Params.KernelSize == 9 && (Params.OutputChannels & 15) == 0) {
         PostProcessParams.Bias = Params.Bias;
         PostProcessParams.Scale = Params.Scale;
         MlasConvSymDepthwiseKernelSize9Arm64(

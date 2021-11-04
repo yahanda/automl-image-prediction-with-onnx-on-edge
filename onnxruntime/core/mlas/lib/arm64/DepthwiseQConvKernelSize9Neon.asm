@@ -97,7 +97,7 @@ Return Value:
         ins     v13.d[1], x8            // Scale
         dup     v0.8h, v0.h[0]          // v0.8h <--- vector for output zero point
 
-        tbnz    x6, MLAS_CONV_SYM_FLAG_PER_CHANNEL_SCALE_BIT_INDEX, MlasConvSymDepthwiseKernelSize9_SkipPerTensorScaleInit
+        tbnz    x6, #MLAS_CONV_SYM_FLAG_PER_CHANNEL_SCALE_BIT_INDEX, MlasConvSymDepthwiseKernelSize9_SkipPerTensorScaleInit
         ldr     x9, [x5, #ConvSymDepthwisePostProcessParams_Scale]
         ldr     s1, [x9]               // load scale val
         dup     v1.4s, v1.s[0]
