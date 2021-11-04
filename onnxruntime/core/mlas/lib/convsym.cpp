@@ -72,7 +72,7 @@ void
 
 typedef
 void
-(MLASCALL MLAS_CONV_SYM_DEPTHWISE_ROUTINE_KERNELSIZE_9)(
+(MLASCALL MLAS_CONV_SYM_DEPTHWISE_S8S8_ROUTINE_KERNELSIZE_9)(
     int8_t const* const* InputIndirection,
     int8_t const* Filter,
     size_t Channels,
@@ -82,6 +82,18 @@ void
     unsigned KernelFlags
     );
 
+
+typedef
+void
+(MLASCALL MLAS_CONV_SYM_DEPTHWISE_U8S8_ROUTINE_KERNELSIZE_9)(
+    uint8_t const* const* InputIndirection,
+    int8_t const* Filter,
+    size_t Channels,
+    uint8_t* Output,
+    size_t OutputCount,
+    MLAS_CONV_SYM_POST_PROCESS_PARAMS const* PostProcessParams,
+    unsigned KernelFlags
+    );
 
 extern "C" {
 
@@ -95,7 +107,8 @@ extern "C" {
     MLAS_CONV_SYM_KERNEL MlasConvSymKernelAvx512Vnni;
     MLAS_CONV_SYM_DEPTHWISE_KERNEL MlasConvSymDepthwiseKernelAvx512Vnni;
 #elif defined(MLAS_TARGET_ARM64)
-    MLAS_CONV_SYM_DEPTHWISE_ROUTINE_KERNELSIZE_9 MlasConvSymDepthwiseS8S8KernelSize9Arm64;
+    MLAS_CONV_SYM_DEPTHWISE_S8S8_ROUTINE_KERNELSIZE_9 MlasConvSymDepthwiseS8S8KernelSize9Arm64;
+    MLAS_CONV_SYM_DEPTHWISE_U8S8_ROUTINE_KERNELSIZE_9 MlasConvSymDepthwiseU8S8KernelSize9Arm64;
 #endif
 
 }
@@ -414,8 +427,8 @@ MlasConvSymDepthwise_KernelSize9(
             OutputCount, PostProcessParams, KernelFlags
         );
     } else {
-        MlasConvSymDepthwiseS8S8KernelSize9Arm64(
-            (int8_t const* const*)InputIndirection, Filter, Channels, (int8_t*)Output,
+        MlasConvSymDepthwiseU8S8KernelSize9Arm64(
+            InputIndirection, Filter, Channels, Output,
             OutputCount, PostProcessParams, KernelFlags
         );
     }
