@@ -70,22 +70,10 @@ void
     unsigned KernelFlags
     );
 
-typedef
-void
-(MLASCALL MLAS_CONV_SYM_DEPTHWISE_S8S8_ROUTINE_KERNELSIZE_9)(
-    int8_t const* const* InputIndirection,
-    int8_t const* Filter,
-    size_t Channels,
-    int8_t* Output,
-    size_t OutputCount,
-    MLAS_CONV_SYM_POST_PROCESS_PARAMS const* PostProcessParams,
-    unsigned KernelFlags
-    );
-
 
 typedef
 void
-(MLASCALL MLAS_CONV_SYM_DEPTHWISE_U8S8_ROUTINE_KERNELSIZE_9)(
+(MLASCALL MLAS_CONV_SYM_DEPTHWISE_ROUTINE_KERNELSIZE_9)(
     uint8_t const* const* InputIndirection,
     int8_t const* Filter,
     size_t Channels,
@@ -107,8 +95,7 @@ extern "C" {
     MLAS_CONV_SYM_KERNEL MlasConvSymKernelAvx512Vnni;
     MLAS_CONV_SYM_DEPTHWISE_KERNEL MlasConvSymDepthwiseKernelAvx512Vnni;
 #elif defined(MLAS_TARGET_ARM64)
-    MLAS_CONV_SYM_DEPTHWISE_S8S8_ROUTINE_KERNELSIZE_9 MlasConvSymDepthwiseS8S8KernelSize9Arm64;
-    MLAS_CONV_SYM_DEPTHWISE_U8S8_ROUTINE_KERNELSIZE_9 MlasConvSymDepthwiseU8S8KernelSize9Arm64;
+    MLAS_CONV_SYM_DEPTHWISE_ROUTINE_KERNELSIZE_9 MlasConvSymDepthwiseKernelSize9Arm64;
 #endif
 
 }
@@ -414,36 +401,6 @@ MlasConvSym(
     }
 }
 
-#if defined(MLAS_TARGET_ARM64)
-
-// After more routines come, could put a pointer into MlasPlatform.
-
-template <typename XYInt8_t>
-void
-MlasConvSymDepthwise_KernelSize9(
-    XYInt8_t const* const* InputIndirection,
-    int8_t const* Filter,
-    size_t Channels,
-    XYInt8_t* Output,
-    size_t OutputCount,
-    MLAS_CONV_SYM_POST_PROCESS_PARAMS const* PostProcessParams,
-    unsigned KernelFlags
-) {
-    if constexpr (std::is_signed<XYInt8_t>::value) {
-        MlasConvSymDepthwiseS8S8KernelSize9Arm64(
-            InputIndirection, Filter, Channels, Output,
-            OutputCount, PostProcessParams, KernelFlags
-        );
-    } else {
-        MlasConvSymDepthwiseU8S8KernelSize9Arm64(
-            InputIndirection, Filter, Channels, Output,
-            OutputCount, PostProcessParams, KernelFlags
-        );
-    }
-}
-
-#endif
-
 void
 MlasConvSymDepthwise(
     const MLAS_CONV_SYM_PARAMS& Params
@@ -463,10 +420,10 @@ MlasConvSymDepthwise(
 
 #if defined(MLAS_TARGET_ARM64)
 
-    if (Params.KernelSize == 9) {
+    if (Params.KernelSize == 9 && (Params.OutputChannels + 15 & ~15) == Params.OutputChannels) {
         PostProcessParams.Bias = Params.Bias;
         PostProcessParams.Scale = Params.Scale;
-        MlasConvSymDepthwise_KernelSize9(
+        MlasConvSymDepthwiseKernelSize9Arm64(
             Params.InputIndirection, (int8_t const*)Params.Filter, Params.OutputChannels, Params.Output,
             Params.OutputCount, &PostProcessParams, KernelFlags
         );
