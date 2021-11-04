@@ -46,6 +46,7 @@ function(setup_mlas_source_for_windows)
 
       set(mlas_platform_preprocess_srcs
         ${MLAS_SRC_DIR}/arm64/DepthwiseConvsymKernelNeon.asm
+        ${MLAS_SRC_DIR}/arm64/DepthwiseQConvKernelSize9Neon.asm
         ${MLAS_SRC_DIR}/arm64/QgemmU8X8KernelNeon.asm
         ${MLAS_SRC_DIR}/arm64/QgemmS8S8KernelNeon.asm
         ${MLAS_SRC_DIR}/arm64/QgemmU8X8KernelUdot.asm

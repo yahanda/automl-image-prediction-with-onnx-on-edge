@@ -394,6 +394,34 @@ MlasConvSym(
     }
 }
 
+#if defined(MLAS_TARGET_ARM64)
+
+template <typename XYInt8_t>
+void
+MlasConvSymDepthwise_KernelSize9(
+    XYInt8_t const* const* InputIndirection,
+    int8_t const* Filter,
+    size_t Channels,
+    XYInt8_t* Output,
+    size_t OutputCount,
+    MLAS_CONV_SYM_POST_PROCESS_PARAMS const* PostProcessParams,
+    unsigned KernelFlags
+) {
+    if constexpr (std::is_signed<XYInt8_t>::value) {
+        MlasConvSymDepthwise_u8s8_KernelSize9(
+            InputIndirection, Filter, Channels, Output,
+            OutputCount, PostProcessParams, KernelFlags
+        );
+    } else {
+        MlasConvSymDepthwise_s8s8_KernelSize9(
+            InputIndirection, Filter, Channels, Output,
+            OutputCount, PostProcessParams, KernelFlags
+        );
+    }
+}
+
+#endif
+
 void
 MlasConvSymDepthwise(
     const MLAS_CONV_SYM_PARAMS& Params
