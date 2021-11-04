@@ -264,6 +264,7 @@ else()
     if(ARM64 AND MLAS_SOURCE_IS_NOT_SET )
         enable_language(ASM)
         set(mlas_platform_srcs
+          ${MLAS_SRC_DIR}/aarch64/DepthwiseQConvKernelSize9Neon.S
           ${MLAS_SRC_DIR}/aarch64/QgemmU8X8KernelNeon.S
           ${MLAS_SRC_DIR}/aarch64/QgemmS8S8KernelNeon.S
           ${MLAS_SRC_DIR}/aarch64/QgemmU8X8KernelUdot.S

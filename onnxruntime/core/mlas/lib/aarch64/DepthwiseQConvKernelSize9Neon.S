@@ -19,26 +19,26 @@ Abstract:
 #include "asmmacro.h"
 
 
-        .equ  .LConvSymDepthwisePostProcessParams_Bias            0
-        .equ  .LConvSymDepthwisePostProcessParams_Scale           8
-        .equ  .LConvSymDepthwisePostProcessParams_ZeroPoint       24
+        .equ  .LConvSymDepthwisePostProcessParams_Bias,            0
+        .equ  .LConvSymDepthwisePostProcessParams_Scale,           8
+        .equ  .LConvSymDepthwisePostProcessParams_ZeroPoint,       24
 
-        .equ  .LMLAS_CONV_SYM_FLAG_PER_CHANNEL_SCALE_BIT_INDEX    1
+        .equ  .LMLAS_CONV_SYM_FLAG_PER_CHANNEL_SCALE_BIT_INDEX,    1
 
 //
 // Stack frame layout for the depthwise conv kernel. d8-d15, x19-x30 need save
 //
-        .equ  .LMlasConvSymDepthwiseKernelSize9_backup_x19_x20    0
-        .equ  .LMlasConvSymDepthwiseKernelSize9_backup_x21_x22    16
-        .equ  .LMlasConvSymDepthwiseKernelSize9_backup_x23_x24    32
-        .equ  .LMlasConvSymDepthwiseKernelSize9_backup_x25_x26    48
-        .equ  .LMlasConvSymDepthwiseKernelSize9_backup_x27_x28    64
-        .equ  .LMlasConvSymDepthwiseKernelSize9_backup_d8_d9      80
-        .equ  .LMlasConvSymDepthwiseKernelSize9_backup_d10_d11    96
-        .equ  .LMlasConvSymDepthwiseKernelSize9_backup_d12_d13    112
-        .equ  .LMlasConvSymDepthwiseKernelSize9_backup_d14_d15    128
-        .equ  .LMlasConvSymDepthwiseKernelSize9_SavedRegisters    144
-        .equ  .LMlasConvSymDepthwiseKernelSize9_SavedRegisters_Neg -144
+        .equ  .LMlasConvSymDepthwiseKernelSize9_backup_x19_x20,    0
+        .equ  .LMlasConvSymDepthwiseKernelSize9_backup_x21_x22,    16
+        .equ  .LMlasConvSymDepthwiseKernelSize9_backup_x23_x24,    32
+        .equ  .LMlasConvSymDepthwiseKernelSize9_backup_x25_x26,    48
+        .equ  .LMlasConvSymDepthwiseKernelSize9_backup_x27_x28,    64
+        .equ  .LMlasConvSymDepthwiseKernelSize9_backup_d8_d9,      80
+        .equ  .LMlasConvSymDepthwiseKernelSize9_backup_d10_d11,    96
+        .equ  .LMlasConvSymDepthwiseKernelSize9_backup_d12_d13,    112
+        .equ  .LMlasConvSymDepthwiseKernelSize9_backup_d14_d15,    128
+        .equ  .LMlasConvSymDepthwiseKernelSize9_SavedRegisters,    144
+        .equ  .LMlasConvSymDepthwiseKernelSize9_SavedRegisters_Neg, -144
 
 
         .text
