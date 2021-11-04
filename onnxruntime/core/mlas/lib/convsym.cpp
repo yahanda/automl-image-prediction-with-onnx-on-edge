@@ -218,7 +218,15 @@ MlasConvSymPackWSize(
     const MLAS_CONV_SYM_DISPATCH* ConvSymDispatch = MlasPlatform.ConvSymDispatch;
 
     if (ConvSymDispatch == nullptr) {
-        return 0;
+
+#if defined(MLAS_TARGET_ARM64)
+        // After convsym enanled, directly return 0 here as before
+        if (!(InputChannels == 1 && OutputChannels == 1 
+                && (GroupCount == (GroupCount + 15) & ~15) &&
+                KernelSize == 9)) {
+            return 0;
+        }
+#endif
     }
 
     if (GroupCount > 1) {
