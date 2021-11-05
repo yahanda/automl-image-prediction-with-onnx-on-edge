@@ -147,19 +147,18 @@ Return Value:
         bhs     .LMlasConvSymDepthwiseKernelSize9_Finish_Channels16_Loop
 
 .LMlasConvSymDepthwiseKernelSize9_Channels16_Loop:
-        ldr     q10, [x1]               // vk0
+        ld1     {v10.16b}, [x1], x2     // vk0
         ldr     q16, [x20, x8]          // out0 vi0
         ldr     q17, [x10, x8]          // out1 vi0
-        ldp     q6, q7, [x5], #64       // bias vacc 0-7 for outs
-        ldr     q11, [x1, x2]           // vk1
+        ld1     {v6.4s, v7.4s, v8.4s, v9.4s}, [x5], #64       // bias vacc 0-15 for outs
+        ld1     {v11.16b}, [x1], x2     // vk1
         ldr     q18, [x21, x8]          // out0 vi1
         ldr     q19, [x11, x8]          // out1 vi1
-        add     x1, x1, x2, LSL #1
+
         eor     v16.16b, v16.16b, v5.16b
         eor     v17.16b, v17.16b, v5.16b
         eor     v18.16b, v18.16b, v5.16b
         eor     v19.16b, v19.16b, v5.16b
-        ldp     q8, q9, [x5, #-32]      // bias vacc 8-15  for outs
 
         smull   v24.8h, v10.8b, v16.8b
         smull2  v25.8h, v10.16b, v16.16b
@@ -170,17 +169,18 @@ Return Value:
         smull   v30.8h, v11.8b, v19.8b
         smull2  v31.8h, v11.16b, v19.16b
 
-        ldr     q14, [x1]               // vk2
+
+        ld1     {v14.16b}, [x1], x2     // vk2
         ldr     q20, [x22, x8]          // out0 vi2
         ldr     q21, [x12, x8]          // out1 vi2
-        ldr     q15, [x1, x2]           // vk3
+        ld1     {v15.16b}, [x1], x2     // vk3
         ldr     q22, [x23, x8]          // out0 vi3
         ldr     q23, [x13, x8]          // out1 vi3
-        eor     v20.16b, v20.16b, v5.16b        // -128 to signed int8
+
+        eor     v20.16b, v20.16b, v5.16b
         eor     v21.16b, v21.16b, v5.16b
         eor     v22.16b, v22.16b, v5.16b
         eor     v23.16b, v23.16b, v5.16b
-        add     x1, x1, x2, LSL #1
 
         smlal   v24.8h, v14.8b, v20.8b
         smlal2  v25.8h, v14.16b, v20.16b
@@ -206,13 +206,12 @@ Return Value:
         saddw   v18.4s, v18.4s, v29.4h
         saddw2  v19.4s, v19.4s, v29.8h
 
-        ldr     q10, [x1]               // vk4
+        ld1     {v10.16b}, [x1], x2     // vk4
         ldr     q20, [x24, x8]          // out0 vi4
         ldr     q21, [x14, x8]          // out1 vi4
-        ldr     q11, [x1, x2]           // vk5
+        ld1     {v11.16b}, [x1], x2     // vk5
         ldr     q22, [x25, x8]          // out0 vi5
         ldr     q23, [x15, x8]          // out1 vi5
-        add     x1, x1, x2, LSL #1
 
         saddw   v6.4s, v6.4s, v30.4h
         saddw2  v7.4s, v7.4s, v30.8h
@@ -232,17 +231,16 @@ Return Value:
         smull   v30.8h, v11.8b, v23.8b
         smull2  v31.8h, v11.16b, v23.16b
 
-        ldr     q14, [x1]               // vk6
+        ld1     {v14.16b}, [x1], x2     // vk6
         ldr     q20, [x26, x8]          // out0 vi6
         ldr     q21, [x16, x8]          // out1 vi6
-        ldr     q14, [x1, x2]           // vk7
+        ld1     {v15.16b}, [x1], x2     // vk7
         ldr     q22, [x27, x8]          // out0 vi7
         ldr     q23, [x17, x8]          // out1 vi7
         eor     v20.16b, v20.16b, v5.16b
         eor     v21.16b, v21.16b, v5.16b
         eor     v22.16b, v22.16b, v5.16b
         eor     v23.16b, v23.16b, v5.16b
-        add     x1, x1, x2, LSL #1
         
         smlal   v24.8h, v14.8b, v20.8b
         smlal2  v25.8h, v14.16b, v20.16b
