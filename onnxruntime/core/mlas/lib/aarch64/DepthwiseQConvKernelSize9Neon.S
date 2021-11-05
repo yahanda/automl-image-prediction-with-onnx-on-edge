@@ -88,25 +88,25 @@ Return Value:
         ldr     x9, [x5, #.LConvSymDepthwisePostProcessParams_Bias]
         ldr     x8, [x5, #.LConvSymDepthwisePostProcessParams_Scale]
         add     x5, x5, #.LConvSymDepthwisePostProcessParams_ZeroPoint
-        ins     v12.d[0], x1            // Filter
-        ins     v13.d[0], x9            // Bias
-        ins     v13.d[1], x8            // Scale
-        ld1r    {v0.8h}, [x5]           // zero point
-        dup     v5.4s, w10              // flip 0x80
+        ins     v12.d[0], x1                // Filter
+        ins     v13.d[0], x9                // Bias
+        ins     v13.d[1], x8                // Scale
+        ld1r    {v0.8h}, [x5]               // zero point
+        dup     v5.4s, w10                  // flip 0x80
 
         tbnz    x6, #.LMLAS_CONV_SYM_FLAG_PER_CHANNEL_SCALE_BIT_INDEX, .LMlasConvSymDepthwiseKernelSize9_SkipPerTensorScaleInit
-        ld1r    {v1.4s}, [x8]           // load scale value
+        ld1r    {v1.4s}, [x8]               // load scale value
         mov     v2.16b, v1.16b
         mov     v3.16b, v1.16b
         mov     v4.16b, v1.16b
 
 .LMlasConvSymDepthwiseKernelSize9_SkipPerTensorScaleInit:
 
-        add     x9, x3, x2              // x9 <---- Ouput1
+        add     x9, x3, x2                  // x9 <---- Ouput1
         cbz     x4, .LMlasConvSymDepthwiseKernelSize9_Exit
 
 .LMlasConvSymDepthwiseKernelSize9_OutputLoop:
-        ldp     x20, x21, [x0], #72     // input ptrs for Output0
+        ldp     x20, x21, [x0], #72         // input ptrs for Output0
         ldp     x22, x23, [x0, #-56]
         sub     x4, x4, #1
         ldp     x24, x25, [x0, #-40]
@@ -114,7 +114,7 @@ Return Value:
         ldur    x28, [x0, #-8]
         
         cbz     x4, .LMlasConvSymDepthwiseKernelSize9_Dup_Inputs
-        ldp     x10, x11, [x0], #72     // input ptrs for Output0
+        ldp     x10, x11, [x0], #72         // input ptrs for Output0
         ldp     x12, x13, [x0, #-56]
         sub     x4, x4, #1
         ldp     x14, x15, [x0, #-40]
@@ -123,7 +123,7 @@ Return Value:
         b       .LMlasConvSymDepthwiseKernelSize9_Loaded_Input
 
 .LMlasConvSymDepthwiseKernelSize9_Dup_Inputs:
-        mov     x9, x3                  // Output1 <-- Output0
+        mov     x9, x3                      // Output1 <-- Output0
         mov     x10, x20
         mov     x11, x21
         mov     x12, x22
@@ -136,24 +136,24 @@ Return Value:
 
 .LMlasConvSymDepthwiseKernelSize9_Loaded_Input:
 
-        eor     x8, x8, x8              // Processed channels
-        umov    x1, v12.D[0]            // filter
-        umov    x5, v13.D[0]            // bias
-        umov    x7, v13.D[1]            // scale
+        eor     x8, x8, x8                  // Processed channels
+        umov    x1, v12.D[0]                // filter
+        umov    x5, v13.D[0]                // bias
+        umov    x7, v13.D[1]                // scale
     
-        cmp     x8, x2                  // Save one register by not using count down to zero here
+        cmp     x8, x2                      // Save one register by not using count down to zero here
         bhs     .LMlasConvSymDepthwiseKernelSize9_Finish_Channels16_Loop
 
 .LMlasConvSymDepthwiseKernelSize9_Channels16_Loop:
-        ld1     {v10.16b}, [x1], x2     // vk0
-        ldr     q16, [x20, x8]          // out0 vi0
-        ldr     q17, [x10, x8]          // out1 vi0
+        ld1     {v10.16b}, [x1], x2         // vk0
+        ldr     q16, [x20, x8]              // out0 vi0
+        ldr     q17, [x10, x8]              // out1 vi0
         ld1     {v6.4s, v7.4s, v8.4s, v9.4s}, [x5], #64       // bias vacc 0-15 for outs
-        ld1     {v11.16b}, [x1], x2     // vk1
-        ldr     q18, [x21, x8]          // out0 vi1
-        ldr     q19, [x11, x8]          // out1 vi1
+        ld1     {v11.16b}, [x1], x2         // vk1
+        ldr     q18, [x21, x8]              // out0 vi1
+        ldr     q19, [x11, x8]              // out1 vi1
 
-        eor     v16.16b, v16.16b, v5.16b
+        eor     v16.16b, v16.16b, v5.16b    // -128 to signed int8
         eor     v17.16b, v17.16b, v5.16b
         eor     v18.16b, v18.16b, v5.16b
         eor     v19.16b, v19.16b, v5.16b
@@ -168,12 +168,12 @@ Return Value:
         smull2  v31.8h, v11.16b, v19.16b
 
 
-        ld1     {v14.16b}, [x1], x2     // vk2
-        ldr     q20, [x22, x8]          // out0 vi2
-        ldr     q21, [x12, x8]          // out1 vi2
-        ld1     {v15.16b}, [x1], x2     // vk3
-        ldr     q22, [x23, x8]          // out0 vi3
-        ldr     q23, [x13, x8]          // out1 vi3
+        ld1     {v14.16b}, [x1], x2         // vk2
+        ldr     q20, [x22, x8]              // out0 vi2
+        ldr     q21, [x12, x8]              // out1 vi2
+        ld1     {v15.16b}, [x1], x2         // vk3
+        ldr     q22, [x23, x8]              // out0 vi3
+        ldr     q23, [x13, x8]              // out1 vi3
 
         eor     v20.16b, v20.16b, v5.16b
         eor     v21.16b, v21.16b, v5.16b
@@ -189,7 +189,7 @@ Return Value:
         smlal   v30.8h, v15.8b, v23.8b
         smlal2  v31.8h, v15.16b, v23.16b
 
-        saddw   v16.4s, v6.4s, v24.4h   // dup acc for out1
+        saddw   v16.4s, v6.4s, v24.4h       // dup acc for out1
         saddw2  v17.4s, v7.4s, v24.8h
         saddw   v18.4s, v8.4s, v25.4h
         saddw2  v19.4s, v9.4s, v25.8h
@@ -204,12 +204,12 @@ Return Value:
         saddw   v18.4s, v18.4s, v29.4h
         saddw2  v19.4s, v19.4s, v29.8h
 
-        ld1     {v10.16b}, [x1], x2     // vk4
-        ldr     q20, [x24, x8]          // out0 vi4
-        ldr     q21, [x14, x8]          // out1 vi4
-        ld1     {v11.16b}, [x1], x2     // vk5
-        ldr     q22, [x25, x8]          // out0 vi5
-        ldr     q23, [x15, x8]          // out1 vi5
+        ld1     {v10.16b}, [x1], x2         // vk4
+        ldr     q20, [x24, x8]              // out0 vi4
+        ldr     q21, [x14, x8]              // out1 vi4
+        ld1     {v11.16b}, [x1], x2         // vk5
+        ldr     q22, [x25, x8]              // out0 vi5
+        ldr     q23, [x15, x8]              // out1 vi5
 
         saddw   v6.4s, v6.4s, v30.4h
         saddw2  v7.4s, v7.4s, v30.8h
@@ -229,12 +229,12 @@ Return Value:
         smull   v30.8h, v11.8b, v23.8b
         smull2  v31.8h, v11.16b, v23.16b
 
-        ld1     {v14.16b}, [x1], x2     // vk6
-        ldr     q20, [x26, x8]          // out0 vi6
-        ldr     q21, [x16, x8]          // out1 vi6
-        ld1     {v15.16b}, [x1], x2     // vk7
-        ldr     q22, [x27, x8]          // out0 vi7
-        ldr     q23, [x17, x8]          // out1 vi7
+        ld1     {v14.16b}, [x1], x2         // vk6
+        ldr     q20, [x26, x8]              // out0 vi6
+        ldr     q21, [x16, x8]              // out1 vi6
+        ld1     {v15.16b}, [x1], x2         // vk7
+        ldr     q22, [x27, x8]              // out0 vi7
+        ldr     q23, [x17, x8]              // out1 vi7
         eor     v20.16b, v20.16b, v5.16b
         eor     v21.16b, v21.16b, v5.16b
         eor     v22.16b, v22.16b, v5.16b
@@ -259,9 +259,9 @@ Return Value:
         saddw   v8.4s, v8.4s, v27.4h
         saddw2  v9.4s, v9.4s, v27.8h
 
-        ldr     q10, [x1]           	// vk8
-        ldr     q20, [x28, x8]          // out0 vi8
-        ldr     q21, [x19, x8]          // out1 vi8
+        ldr     q10, [x1]                   // vk8
+        ldr     q20, [x28, x8]              // out0 vi8
+        ldr     q21, [x19, x8]              // out1 vi8
 
         tbz     x6, #.LMLAS_CONV_SYM_FLAG_PER_CHANNEL_SCALE_BIT_INDEX, .LDonePerChannelScaleLoad_MlasConvSymDepthwiseKernelSize9
         ld1     {v1.4s, v2.4s, v3.4s, v4.4s}, [x7], #64     	// scales 0-15 for outs
@@ -294,8 +294,7 @@ Return Value:
         saddw   v8.4s, v8.4s, v27.4h
         saddw2  v9.4s, v9.4s, v27.8h
 
-        // Requantize
-        scvtf   v16.4s, v16.4s
+        scvtf   v16.4s, v16.4s              // Requantize
         scvtf   v17.4s, v17.4s
         scvtf   v18.4s, v18.4s
         scvtf   v19.4s, v19.4s
@@ -322,8 +321,7 @@ Return Value:
         fcvtns  v8.4s, v8.4s
         fcvtns  v9.4s, v9.4s
 
-        // +zp, narrow and combine
-        sqxtn   v16.4h, v16.4s
+        sqxtn   v16.4h, v16.4s              // +zp, narrow and combine
         sqxtn   v18.4h, v18.4s
         sqxtn   v6.4h, v6.4s
         sqxtn   v8.4h, v8.4s
@@ -343,7 +341,7 @@ Return Value:
         str     q16, [x3, x8]
         str     q6, [x9, x8]
         add     x8, x8, #16
-        umov    x1, v12.D[0]            // filter
+        umov    x1, v12.D[0]                // filter
         cmp     x8, x2
         add     x1, x1, x8
         blo     .LMlasConvSymDepthwiseKernelSize9_Channels16_Loop
