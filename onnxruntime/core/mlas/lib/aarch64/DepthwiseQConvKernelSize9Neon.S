@@ -263,13 +263,13 @@ Return Value:
         saddw   v8.4s, v8.4s, v27.4h
         saddw2  v9.4s, v9.4s, v27.8h
 
-        ldr     q10, [x1, x2]           // vk8
+        ldr     q10, [x1]           	// vk8
         ldr     q20, [x28, x8]          // out0 vi8
         ldr     q21, [x19, x8]          // out1 vi8
 
         tbz     x6, #.LMLAS_CONV_SYM_FLAG_PER_CHANNEL_SCALE_BIT_INDEX, .LDonePerChannelScaleLoad_MlasConvSymDepthwiseKernelSize9
-        ldp     q1, q2, [x7], #64     // scale 0-7 for outs
-        ldp     q3, q4, [x7, #-32]    // scale 8-15 for outs
+        ldp     q1, q2, [x7], #64     	// scale 0-7 for outs
+        ldp     q3, q4, [x7, #-32]    	// scale 8-15 for outs
 
 .LDonePerChannelScaleLoad_MlasConvSymDepthwiseKernelSize9:
         saddw   v16.4s, v16.4s, v28.4h
@@ -340,15 +340,17 @@ Return Value:
         sqadd   v18.8h, v18.8h, v0.8h
         sqadd   v6.8h, v6.8h, v0.8h
         sqadd   v8.8h, v8.8h, v0.8h
-        sqxtn   v16.8b, v16.8h
-        sqxtn2  v16.16b, v18.8h
-        sqxtn   v6.8b, v6.8h
-        sqxtn2  v6.16b, v8.8h
+        sqxtun  v16.8b, v16.8h
+        sqxtun2 v16.16b, v18.8h
+        sqxtun  v6.8b, v6.8h
+        sqxtun2 v6.16b, v8.8h
 
         str     q16, [x3, x8]
         str     q6, [x9, x8]
         add     x8, x8, #16
+        umov    x1, v12.D[0]            // filter
         cmp     x8, x2
+        add     x1, x1, x8
         blo     .LMlasConvSymDepthwiseKernelSize9_Channels16_Loop
 
 .LMlasConvSymDepthwiseKernelSize9_Finish_Channels16_Loop:
