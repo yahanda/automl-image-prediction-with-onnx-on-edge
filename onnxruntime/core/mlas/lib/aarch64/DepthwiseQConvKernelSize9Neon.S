@@ -74,33 +74,31 @@ Return Value:
 
         FUNCTION_ENTRY MlasConvSymDepthwiseKernelSize9Arm64
         
-        stp      x19, x20, [sp, #.LMlasConvSymDepthwiseKernelSize9_SavedRegisters_Neg]!
-        stp      x21, x22, [sp, #.LMlasConvSymDepthwiseKernelSize9_backup_x21_x22]
-        stp      x23, x24, [sp, #.LMlasConvSymDepthwiseKernelSize9_backup_x23_x24]
-        stp      x25, x26, [sp, #.LMlasConvSymDepthwiseKernelSize9_backup_x25_x26]
-        stp      x27, x28, [sp, #.LMlasConvSymDepthwiseKernelSize9_backup_x27_x28]
-        stp      d8, d9, [sp, #.LMlasConvSymDepthwiseKernelSize9_backup_d8_d9]
-        stp      d10, d11, [sp, #.LMlasConvSymDepthwiseKernelSize9_backup_d10_d11]
-        stp      d12, d13, [sp, #.LMlasConvSymDepthwiseKernelSize9_backup_d12_d13]
-        stp      d14, d15, [sp, #.LMlasConvSymDepthwiseKernelSize9_backup_d14_d15]
+        stp     x19, x20, [sp, #.LMlasConvSymDepthwiseKernelSize9_SavedRegisters_Neg]!
+        stp     x21, x22, [sp, #.LMlasConvSymDepthwiseKernelSize9_backup_x21_x22]
+        stp     x23, x24, [sp, #.LMlasConvSymDepthwiseKernelSize9_backup_x23_x24]
+        stp     x25, x26, [sp, #.LMlasConvSymDepthwiseKernelSize9_backup_x25_x26]
+        stp     x27, x28, [sp, #.LMlasConvSymDepthwiseKernelSize9_backup_x27_x28]
+        stp     d8, d9, [sp, #.LMlasConvSymDepthwiseKernelSize9_backup_d8_d9]
+        stp     d10, d11, [sp, #.LMlasConvSymDepthwiseKernelSize9_backup_d10_d11]
+        stp     d12, d13, [sp, #.LMlasConvSymDepthwiseKernelSize9_backup_d12_d13]
+        stp     d14, d15, [sp, #.LMlasConvSymDepthwiseKernelSize9_backup_d14_d15]
 
         mov     w10, #0x80808080
-        ldr     x7, [x5, #.LConvSymDepthwisePostProcessParams_Bias]
+        ldr     x9, [x5, #.LConvSymDepthwisePostProcessParams_Bias]
         ldr     x8, [x5, #.LConvSymDepthwisePostProcessParams_Scale]
-        ldr     s0, [x5, #.LConvSymDepthwisePostProcessParams_ZeroPoint]
+        add     x5, x5, #.LConvSymDepthwisePostProcessParams_ZeroPoint
         ins     v12.d[0], x1            // Filter
-        ins     v13.d[0], x7            // Bias
+        ins     v13.d[0], x9            // Bias
         ins     v13.d[1], x8            // Scale
-        dup     v0.8h, v0.h[0]          // v0.8h <--- vector for output zero point
+        ld1r    {v0.8h}, [x5]           // zero point
+        dup     v5.4s, w10              // flip 0x80
 
         tbnz    x6, #.LMLAS_CONV_SYM_FLAG_PER_CHANNEL_SCALE_BIT_INDEX, .LMlasConvSymDepthwiseKernelSize9_SkipPerTensorScaleInit
-        ldr     x9, [x5, #.LConvSymDepthwisePostProcessParams_Scale]
-        ldr     s1, [x9]               // load scale val
-        dup     v1.4s, v1.s[0]
+        ld1r    {v1.4s}, [x8]           // load scale value
         mov     v2.16b, v1.16b
         mov     v3.16b, v1.16b
         mov     v4.16b, v1.16b
-        dup     v5.4s, w10
 
 .LMlasConvSymDepthwiseKernelSize9_SkipPerTensorScaleInit:
 
@@ -266,8 +264,7 @@ Return Value:
         ldr     q21, [x19, x8]          // out1 vi8
 
         tbz     x6, #.LMLAS_CONV_SYM_FLAG_PER_CHANNEL_SCALE_BIT_INDEX, .LDonePerChannelScaleLoad_MlasConvSymDepthwiseKernelSize9
-        ldp     q1, q2, [x7], #64     	// scale 0-7 for outs
-        ldp     q3, q4, [x7, #-32]    	// scale 8-15 for outs
+        ld1     {v1.4s, v2.4s, v3.4s, v4.4s}, [x7], #64     	// scales 0-15 for outs
 
 .LDonePerChannelScaleLoad_MlasConvSymDepthwiseKernelSize9:
         saddw   v16.4s, v16.4s, v28.4h
@@ -365,7 +362,7 @@ Return Value:
         ldp     x25, x26, [sp, #.LMlasConvSymDepthwiseKernelSize9_backup_x25_x26]
         ldp     x23, x24, [sp, #.LMlasConvSymDepthwiseKernelSize9_backup_x23_x24]
         ldp     x21, x22, [sp, #.LMlasConvSymDepthwiseKernelSize9_backup_x21_x22]
-        ldp     x19, x20, [sp, #.LMlasConvSymDepthwiseKernelSize9_SavedRegisters]!
+        ldp     x19, x20, [sp], #.LMlasConvSymDepthwiseKernelSize9_SavedRegisters
         ret
 
         .end
