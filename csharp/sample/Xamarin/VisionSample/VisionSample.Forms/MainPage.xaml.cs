@@ -85,7 +85,12 @@ namespace VisionSample.Forms
         {
             var assembly = GetType().Assembly;
 
-            using Stream stream = assembly.GetManifestResourceStream($"{assembly.GetName().Name}.demo.jpg");
+            var imageName = Samples.SelectedItem switch
+            {
+                _ => "demo.jpg"
+            };
+
+            using Stream stream = assembly.GetManifestResourceStream($"{assembly.GetName().Name}.SampleImages.{imageName}");
             using MemoryStream memoryStream = new MemoryStream();
 
             stream.CopyTo(memoryStream);
@@ -192,7 +197,7 @@ namespace VisionSample.Forms
 
         void SetBusyState(bool busy)
         {
-            SessionOptionModes.IsEnabled = !busy;
+            ExecutionProviderOptions.IsEnabled = !busy;
             SamplePhotoButton.IsEnabled = !busy;
             PickPhotoButton.IsEnabled = !busy;
             TakePhotoButton.IsEnabled = !busy;

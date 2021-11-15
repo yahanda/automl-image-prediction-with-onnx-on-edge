@@ -23,6 +23,15 @@
     <ProjectReference Include="..\VisionSample\VisionSample.csproj" />
   </ItemGroup>
   <ItemGroup>
-    <EmbeddedResource Include="demo.jpg" />
+    <EmbeddedResource Include="SampleImages\demo.jpg" />
+    <EmbeddedResource Include="SampleImages\dog.jpg" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Remove="SampleImages\" />
+    <None Remove="SampleImages\demo.jpg" />
+    <None Remove="SampleImages\dog.jpg" />
+  </ItemGroup>
+  <ItemGroup>
+    <Folder Include="SampleImages\" />
   </ItemGroup>
 </Project>

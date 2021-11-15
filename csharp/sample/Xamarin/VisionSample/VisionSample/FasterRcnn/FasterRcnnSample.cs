@@ -82,7 +82,7 @@ namespace VisionSample
         {
             var assembly = GetType().Assembly;
 
-            using Stream stream = assembly.GetManifestResourceStream($"{assembly.GetName().Name}.faster_rcnn.onnx");
+            using Stream stream = assembly.GetManifestResourceStream($"{assembly.GetName().Name}.FasterRcnn.faster_rcnn.onnx");
             using MemoryStream memoryStream = new MemoryStream();
 
             stream.CopyTo(memoryStream);
