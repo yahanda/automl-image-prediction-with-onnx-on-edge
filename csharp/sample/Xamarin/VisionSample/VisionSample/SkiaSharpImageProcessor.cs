@@ -8,6 +8,11 @@ namespace VisionSample
 {
     public class SkiaSharpImageProcessor<TPrediction> : IImageProcessor<SKBitmap, TPrediction>
     {
+        protected virtual SKBitmap OnPreprocessSourceImage(SKBitmap sourceImage) => sourceImage;
+        protected virtual Tensor<float> OnGetTensorForImage(SKBitmap image) => throw new NotImplementedException();
+        protected virtual void OnPrepareToApplyPredications(SKBitmap image, SKCanvas canvas) { }
+        protected virtual void OnApplyPrediction(TPrediction prediction, SKPaint textPaint, SKPaint rectPaint, SKCanvas canvas) { }
+
         public byte[] ApplyPredictionsToImage(IList<TPrediction> predictions, SKBitmap image)
         {
             // Annotate image to reflect predictions and save for viewing
@@ -17,6 +22,8 @@ namespace VisionSample
             using SKPaint rectPaint = new SKPaint { StrokeWidth = 2f, IsStroke = true, Color = SKColors.Red };
 
             canvas.DrawBitmap(image, 0, 0);
+
+            OnPrepareToApplyPredications(image, canvas);
 
             foreach (var prediction in predictions)
                 OnApplyPrediction(prediction, textPaint, rectPaint, canvas);
@@ -29,9 +36,14 @@ namespace VisionSample
             return bytes;
         }
 
-        protected virtual SKBitmap OnPreprocessSourceImage(SKBitmap sourceImage) => sourceImage;
-        protected virtual Tensor<float> OnGetTensorForImage(SKBitmap image) => throw new NotImplementedException();
-        protected virtual void OnApplyPrediction(TPrediction prediction, SKPaint textPaint, SKPaint rectPaint, SKCanvas canvas) { }
+        public byte[] GetBytesForBitmap(SKBitmap bitmap)
+        {
+            using var image = SKImage.FromBitmap(bitmap);
+            using var data = image.Encode(SKEncodedImageFormat.Jpeg, 100);
+            var bytes = data.ToArray();
+
+            return bytes;
+        }
 
         public Tensor<float> GetTensorForImage(SKBitmap image)
             => OnGetTensorForImage(image);

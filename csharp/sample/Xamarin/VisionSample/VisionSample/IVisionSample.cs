@@ -4,7 +4,8 @@ namespace VisionSample
 {
     public interface IVisionSample
     {
-        public string Name { get; }
-        public Task<byte[]> ProcessImageAsync(byte[] image, ExecutionProviderOptions executionProvider);
+        string Name { get; }
+        Task InitializeAsync();
+        Task<ImageProcessingResult> ProcessImageAsync(byte[] image, ExecutionProviderOptions executionProvider);
     }
 }

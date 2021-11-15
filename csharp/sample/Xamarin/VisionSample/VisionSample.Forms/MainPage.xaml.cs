@@ -18,7 +18,10 @@ namespace VisionSample.Forms
     public partial class MainPage : ContentPage
     {
         FasterRcnnSample _fasterRcnnSample;
+        ResNetSample _resnetSample;
+
         FasterRcnnSample FasterRcnnSample => _fasterRcnnSample ??= new FasterRcnnSample();
+        ResNetSample ResNetSample => _resnetSample ??= new ResNetSample();
 
         public MainPage()
         {
@@ -33,12 +36,14 @@ namespace VisionSample.Forms
             ExecutionProviderOptions.SelectedIndex = 1;
 
             Samples.Items.Add(FasterRcnnSample.Name);
-            Samples.SelectedIndex = 0;
+            Samples.Items.Add(ResNetSample.Name);
+            Samples.SelectedIndex = 1;
         }
 
         async Task AcquireAndAnalyzeImageAsync(ImageAcquisitionMode acquisitionMode = ImageAcquisitionMode.Sample)
         {
             byte[] outputImage = null;
+            string caption = null;
 
             try
             {
@@ -67,10 +72,14 @@ namespace VisionSample.Forms
 
                 IVisionSample sample = Samples.SelectedItem switch
                 {
+                    ResNetSample.Identifier => ResNetSample,
                     _ => FasterRcnnSample
                 };
 
-                outputImage = await sample.ProcessImageAsync(imageData, sessionOptionMode);
+                var result = await sample.ProcessImageAsync(imageData, sessionOptionMode);
+
+                outputImage = result.Image;
+                caption = result.Caption;
             }
             finally
             {
@@ -78,7 +87,7 @@ namespace VisionSample.Forms
             }
 
             if (outputImage != null)
-                ShowResult(outputImage);
+                ShowResult(outputImage, caption);
         }
 
         Task<byte[]> GetSampleImageAsync() => Task.Run(() =>
@@ -87,6 +96,7 @@ namespace VisionSample.Forms
 
             var imageName = Samples.SelectedItem switch
             {
+                ResNetSample.Identifier => "dog.jpg",
                 _ => "demo.jpg"
             };
 
@@ -189,11 +199,17 @@ namespace VisionSample.Forms
             return bytes;
         }
 
-        void ClearResult()
-            => MainThread.BeginInvokeOnMainThread(() => OutputImage.Source = null);
+        void ClearResult() => MainThread.BeginInvokeOnMainThread(() =>
+        {
+            OutputImage.Source = null;
+            Caption.Text = string.Empty;
+        });
 
-        void ShowResult(byte[] image)
-            => MainThread.BeginInvokeOnMainThread(() => OutputImage.Source = ImageSource.FromStream(() => new MemoryStream(image)));
+        void ShowResult(byte[] image, string caption = null) => MainThread.BeginInvokeOnMainThread(() =>
+        {
+            OutputImage.Source = ImageSource.FromStream(() => new MemoryStream(image));
+            Caption.Text = string.IsNullOrWhiteSpace(caption) ? string.Empty : caption;
+        });
 
         void SetBusyState(bool busy)
         {

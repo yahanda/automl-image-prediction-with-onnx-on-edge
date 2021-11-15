@@ -9,25 +9,27 @@ namespace VisionSample
 {
     public class FasterRcnnSample : IVisionSample
     {
+        public const string Identifier = "Faster R-CNN";
+
         byte[] _model;
         Task _initializeTask;
         FasterRcnnImageProcessor _fasterRcnnImageProcessor;
 
         FasterRcnnImageProcessor FasterRcnnImageProcessor => _fasterRcnnImageProcessor ??= new FasterRcnnImageProcessor();
 
-        public string Name => "Faster R-CNN";
+        public string Name => Identifier;
 
-        public async Task<byte[]> ProcessImageAsync(byte[] sourceImage, ExecutionProviderOptions sessionOptionMode = ExecutionProviderOptions.CPU)
+        public FasterRcnnSample() => _ = InitializeAsync();
+
+        public async Task<ImageProcessingResult> ProcessImageAsync(byte[] sourceImage, ExecutionProviderOptions sessionOptionMode = ExecutionProviderOptions.CPU)
         {
-            byte[] outputImage = null;
-
             await InitializeAsync().ConfigureAwait(false);
             using var preprocessedImage = await Task.Run(() => FasterRcnnImageProcessor.PreprocessSourceImage(sourceImage)).ConfigureAwait(false);
             var tensor = await Task.Run(() => FasterRcnnImageProcessor.GetTensorForImage(preprocessedImage)).ConfigureAwait(false);
             var predictions = await Task.Run(() => GetPredictions(tensor, sessionOptionMode)).ConfigureAwait(false);
-            outputImage = await Task.Run(() => FasterRcnnImageProcessor.ApplyPredictionsToImage(predictions, preprocessedImage)).ConfigureAwait(false);
+            var outputImage = await Task.Run(() => FasterRcnnImageProcessor.ApplyPredictionsToImage(predictions, preprocessedImage)).ConfigureAwait(false);
 
-            return outputImage;
+            return new ImageProcessingResult(outputImage);
         }
 
         List<FasterRcnnPrediction> GetPredictions(Tensor<float> input, ExecutionProviderOptions sessionOptionsMode = ExecutionProviderOptions.CPU)
@@ -70,7 +72,7 @@ namespace VisionSample
             return predictions;
         }
 
-        Task InitializeAsync()
+        public Task InitializeAsync()
         {
             if (_initializeTask == null || _initializeTask.IsFaulted)
                 _initializeTask = Task.Run(() => Initialize());
