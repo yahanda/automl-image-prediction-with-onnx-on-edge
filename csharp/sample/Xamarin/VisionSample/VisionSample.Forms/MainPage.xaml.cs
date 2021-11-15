@@ -6,7 +6,7 @@ using Plugin.Media.Abstractions;
 using Xamarin.Essentials;
 using Xamarin.Forms;
 
-namespace FasterRcnnSample.Forms
+namespace VisionSample.Forms
 {
     enum ImageAcquisitionMode
     {

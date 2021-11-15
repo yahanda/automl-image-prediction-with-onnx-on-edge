@@ -5,7 +5,7 @@ using System.Threading.Tasks;
 using Microsoft.ML.OnnxRuntime;
 using Microsoft.ML.OnnxRuntime.Tensors;
 
-namespace FasterRcnnSample
+namespace VisionSample
 {
     public enum SessionOptionMode
     {

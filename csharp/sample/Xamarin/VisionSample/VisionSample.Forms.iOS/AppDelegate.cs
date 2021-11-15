@@ -2,7 +2,7 @@
 using Microsoft.ML.OnnxRuntime;
 using UIKit;
 
-namespace FasterRcnnSample.Forms.iOS
+namespace VisionSample.Forms.iOS
 {
     // The UIApplicationDelegate for the application. This class is responsible for launching the 
     // User Interface of the application, as well as listening (and optionally responding) to 

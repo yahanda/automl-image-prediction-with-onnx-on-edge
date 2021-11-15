@@ -9,9 +9,9 @@
     <ProjectTypeGuids>{FEACFBD2-3405-455C-9665-78FE426C6842};{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}</ProjectTypeGuids>
     <TemplateGuid>{6143fdea-f3c2-4a09-aafa-6e230626515e}</TemplateGuid>
     <OutputType>Exe</OutputType>
-    <RootNamespace>FasterRcnnSample.Forms.iOS</RootNamespace>
+    <RootNamespace>VisionSample.Forms.iOS</RootNamespace>
     <IPhoneResourcePrefix>Resources</IPhoneResourcePrefix>
-    <AssemblyName>FasterRcnnSample.Forms.iOS</AssemblyName>
+    <AssemblyName>VisionSample.Forms.iOS</AssemblyName>
     <MtouchEnableSGenConc>true</MtouchEnableSGenConc>
     <MtouchHttpClientHandler>NSUrlSessionHandler</MtouchHttpClientHandler>
     <ProvisioningType>automatic</ProvisioningType>
@@ -134,18 +134,18 @@
     <PackageReference Include="Xamarin.Essentials" Version="1.7.0" />
     <PackageReference Include="Microsoft.ML.OnnxRuntime">
       <!-- TODO: Update to use official package once Xamarin support is added to it -->
-      <Version>1.10.0-dev</Version>
+      <Version>1.10.0-dev-20211007-0712-73c0796ac</Version>
     </PackageReference>
     <PackageReference Include="System.Memory" Version="4.5.4" IncludeAssets="None" />
   </ItemGroup>
   <ItemGroup>
-    <ProjectReference Include="..\FasterRcnnSample.Forms\FasterRcnnSample.Forms.csproj">
+    <ProjectReference Include="..\VisionSample.Forms\VisionSample.Forms.csproj">
       <Project>{51D1A8FB-ADFF-43DE-8215-DB5E86DA4870}</Project>
-      <Name>FasterRcnnSample.Forms</Name>
+      <Name>VisionSample.Forms</Name>
     </ProjectReference>
-    <ProjectReference Include="..\FasterRcnnSample\FasterRcnnSample.csproj">
+    <ProjectReference Include="..\VisionSample\VisionSample.csproj">
       <Project>{A15403C6-B715-4FF4-AAE5-702A0E1A284D}</Project>
-      <Name>FasterRcnnSample</Name>
+      <Name>VisionSample</Name>
     </ProjectReference>
   </ItemGroup>
   <Import Project="$(MSBuildExtensionsPath)\Xamarin\iOS\Xamarin.iOS.CSharp.targets" />

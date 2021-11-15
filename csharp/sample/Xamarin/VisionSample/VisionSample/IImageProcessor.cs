@@ -1,7 +1,7 @@
 ﻿using System.Collections.Generic;
 using Microsoft.ML.OnnxRuntime.Tensors;
 
-namespace FasterRcnnSample
+namespace VisionSample
 {
     public interface IImageProcessor<T>
     {

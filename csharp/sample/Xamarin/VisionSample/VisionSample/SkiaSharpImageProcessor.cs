@@ -4,7 +4,7 @@ using System.IO;
 using Microsoft.ML.OnnxRuntime.Tensors;
 using SkiaSharp;
 
-namespace FasterRcnnSample
+namespace VisionSample
 {
     public class SkiaSharpImageProcessor : IImageProcessor<SKBitmap>
     {

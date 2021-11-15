@@ -1,13 +1,13 @@
 ﻿using Xamarin.Forms;
 
-namespace FasterRcnnSample.Forms
+namespace VisionSample.Forms
 {
     public partial class App : Application
     {
         public App()
         {
             InitializeComponent();
-            MainPage = new NavigationPage(new MainPage { Title = "Faster R-CNN" });
+            MainPage = new NavigationPage(new MainPage { Title = "Vision Sample" });
         }
 
         protected override void OnStart()

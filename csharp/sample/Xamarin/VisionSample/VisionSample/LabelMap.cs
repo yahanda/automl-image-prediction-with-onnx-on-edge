@@ -1,4 +1,4 @@
-﻿namespace FasterRcnnSample
+﻿namespace VisionSample
 {
     public class LabelMap
     {

@@ -20,7 +20,7 @@
     <PackageReference Include="Xam.Plugin.Media" Version="5.0.1" />
   </ItemGroup>
   <ItemGroup>
-    <ProjectReference Include="..\FasterRcnnSample\FasterRcnnSample.csproj" />
+    <ProjectReference Include="..\VisionSample\VisionSample.csproj" />
   </ItemGroup>
   <ItemGroup>
     <EmbeddedResource Include="demo.jpg" />

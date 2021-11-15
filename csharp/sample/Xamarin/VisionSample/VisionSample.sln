@@ -3,13 +3,13 @@ Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio Version 16
 VisualStudioVersion = 16.0.810.9
 MinimumVisualStudioVersion = 10.0.40219.1
-Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "FasterRcnnSample", "FasterRcnnSample\FasterRcnnSample.csproj", "{A15403C6-B715-4FF4-AAE5-702A0E1A284D}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "VisionSample", "VisionSample\VisionSample.csproj", "{A15403C6-B715-4FF4-AAE5-702A0E1A284D}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "FasterRcnnSample.Forms.Android", "FasterRcnnSample.Forms.Android\FasterRcnnSample.Forms.Android.csproj", "{1EBA64F4-EDCD-432F-83CB-C55FDA6CC051}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "VisionSample.Forms.Android", "VisionSample.Forms.Android\VisionSample.Forms.Android.csproj", "{1EBA64F4-EDCD-432F-83CB-C55FDA6CC051}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "FasterRcnnSample.Forms.iOS", "FasterRcnnSample.Forms.iOS\FasterRcnnSample.Forms.iOS.csproj", "{7BE012C6-4EBE-4555-8CC9-5AE856A92DFF}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "VisionSample.Forms.iOS", "VisionSample.Forms.iOS\VisionSample.Forms.iOS.csproj", "{7BE012C6-4EBE-4555-8CC9-5AE856A92DFF}"
 EndProject
-Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "FasterRcnnSample.Forms", "FasterRcnnSample.Forms\FasterRcnnSample.Forms.csproj", "{51D1A8FB-ADFF-43DE-8215-DB5E86DA4870}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "VisionSample.Forms", "VisionSample.Forms\VisionSample.Forms.csproj", "{51D1A8FB-ADFF-43DE-8215-DB5E86DA4870}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution

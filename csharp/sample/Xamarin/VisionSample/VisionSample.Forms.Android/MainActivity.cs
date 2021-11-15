@@ -4,9 +4,9 @@ using Android.Runtime;
 using Android.OS;
 using Microsoft.ML.OnnxRuntime;
 
-namespace FasterRcnnSample.Forms.Droid
+namespace VisionSample.Forms.Droid
 {
-    [Activity(Label = "FasterRcnnSample.Forms", Icon = "@mipmap/icon", Theme = "@style/MainTheme", MainLauncher = true,
+    [Activity(Label = "VisionSample.Forms", Icon = "@mipmap/icon", Theme = "@style/MainTheme", MainLauncher = true,
               ScreenOrientation = ScreenOrientation.Portrait,
               ConfigurationChanges = ConfigChanges.ScreenSize | ConfigChanges.Orientation | ConfigChanges.UiMode |
                                      ConfigChanges.ScreenLayout | ConfigChanges.SmallestScreenSize)]
@@ -26,8 +26,7 @@ namespace FasterRcnnSample.Forms.Droid
             LoadApplication(new App());
         }
 
-        public override void OnRequestPermissionsResult(int requestCode, string[] permissions,
-                                                        [GeneratedEnum] Permission[] grantResults)
+        public override void OnRequestPermissionsResult(int requestCode, string[] permissions, [GeneratedEnum] Permission[] grantResults)
         {
             Xamarin.Essentials.Platform.OnRequestPermissionsResult(requestCode, permissions, grantResults);
 

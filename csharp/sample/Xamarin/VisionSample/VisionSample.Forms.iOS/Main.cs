@@ -1,6 +1,6 @@
 ﻿using UIKit;
 
-namespace FasterRcnnSample.Forms.iOS
+namespace VisionSample.Forms.iOS
 {
     public class Application
     {
