@@ -19,7 +19,7 @@ namespace VisionSample.Forms.iOS
         //
         public override bool FinishedLaunching(UIApplication app, NSDictionary options)
         {
-            SessionOptionsContainer.Register(nameof(SessionOptionMode.Platform), (sessionOptions) => sessionOptions.AppendExecutionProvider_CoreML(CoreMLFlags.COREML_FLAG_ONLY_ENABLE_DEVICE_WITH_ANE));
+            SessionOptionsContainer.Register(nameof(ExecutionProviderOptions.Platform), (sessionOptions) => sessionOptions.AppendExecutionProvider_CoreML(CoreMLFlags.COREML_FLAG_ONLY_ENABLE_DEVICE_WITH_ANE));
 
             global::Xamarin.Forms.Forms.Init();
             LoadApplication(new App());

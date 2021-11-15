@@ -3,10 +3,10 @@ using Microsoft.ML.OnnxRuntime.Tensors;
 
 namespace VisionSample
 {
-    public interface IImageProcessor<T>
+    public interface IImageProcessor<TImage, TPrediction>
     {
-        T PreprocessSourceImage(byte[] sourceImage);
-        Tensor<float> GetTensorForImage(T image);
-        byte[] ApplyPredictionsToImage(IList<Prediction> predictions, T image);
+        TImage PreprocessSourceImage(byte[] sourceImage);
+        Tensor<float> GetTensorForImage(TImage image);
+        byte[] ApplyPredictionsToImage(IList<TPrediction> predictions, TImage image);
     }
 }

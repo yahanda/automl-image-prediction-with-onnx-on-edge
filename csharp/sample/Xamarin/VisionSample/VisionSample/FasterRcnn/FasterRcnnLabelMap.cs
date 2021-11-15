@@ -1,6 +1,6 @@
 ﻿namespace VisionSample
 {
-    public class LabelMap
+    public class FasterRcnnLabelMap
     {
         public static readonly string[] Labels = new[] {"__background",
                                                         "person",

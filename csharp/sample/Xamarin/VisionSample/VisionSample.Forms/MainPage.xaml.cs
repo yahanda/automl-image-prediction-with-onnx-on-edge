@@ -17,16 +17,23 @@ namespace VisionSample.Forms
 
     public partial class MainPage : ContentPage
     {
-        FasterRcnnObjectDetector _objectDetector;
-        FasterRcnnObjectDetector ObjectDetector => _objectDetector ??= new FasterRcnnObjectDetector();
+        FasterRcnnSample _fasterRcnnSample;
+        FasterRcnnSample FasterRcnnSample => _fasterRcnnSample ??= new FasterRcnnSample();
 
         public MainPage()
         {
             InitializeComponent();
 
-            SessionOptionModes.Items.Add(nameof(SessionOptionMode.Default));
-            SessionOptionModes.Items.Add(nameof(SessionOptionMode.Platform));
-            SessionOptionModes.SelectedIndex = 1;
+            // See:
+            // ONNX Runtime Execution Providers: https://onnxruntime.ai/docs/execution-providers/
+            // Core ML: https://developer.apple.com/documentation/coreml
+            // NNAPI: https://developer.android.com/ndk/guides/neuralnetworks
+            ExecutionProviderOptions.Items.Add(nameof(VisionSample.ExecutionProviderOptions.CPU));
+            ExecutionProviderOptions.Items.Add(Device.RuntimePlatform == Device.Android ? "NNAPI" : "Core ML");
+            ExecutionProviderOptions.SelectedIndex = 1;
+
+            Samples.Items.Add(FasterRcnnSample.Name);
+            Samples.SelectedIndex = 0;
         }
 
         async Task AcquireAndAnalyzeImageAsync(ImageAcquisitionMode acquisitionMode = ImageAcquisitionMode.Sample)
@@ -52,13 +59,18 @@ namespace VisionSample.Forms
 
                 ClearResult();
 
-                var sessionOptionMode = SessionOptionModes.SelectedItem switch
+                var sessionOptionMode = ExecutionProviderOptions.SelectedItem switch
                 {
-                    nameof(SessionOptionMode.Default) => SessionOptionMode.Default,
-                    _ => SessionOptionMode.Platform
+                    nameof(VisionSample.ExecutionProviderOptions.CPU) => VisionSample.ExecutionProviderOptions.CPU,
+                    _ => VisionSample.ExecutionProviderOptions.Platform
                 };
 
-                outputImage = await ObjectDetector.GetImageWithObjectsAsync(imageData, sessionOptionMode);
+                IVisionSample sample = Samples.SelectedItem switch
+                {
+                    _ => FasterRcnnSample
+                };
+
+                outputImage = await sample.ProcessImageAsync(imageData, sessionOptionMode);
             }
             finally
             {

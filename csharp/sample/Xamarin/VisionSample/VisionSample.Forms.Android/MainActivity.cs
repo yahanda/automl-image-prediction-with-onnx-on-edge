@@ -20,7 +20,7 @@ namespace VisionSample.Forms.Droid
             global::Xamarin.Forms.Forms.Init(this, savedInstanceState);
 
             SessionOptionsContainer.Register(
-                nameof(SessionOptionMode.Platform),
+                nameof(ExecutionProviderOptions.Platform),
                 (sessionOptions) => sessionOptions.AppendExecutionProvider_Nnapi(NnapiFlags.NNAPI_FLAG_USE_NONE));
 
             LoadApplication(new App());

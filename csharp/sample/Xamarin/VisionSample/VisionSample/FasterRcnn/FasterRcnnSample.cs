@@ -7,34 +7,30 @@ using Microsoft.ML.OnnxRuntime.Tensors;
 
 namespace VisionSample
 {
-    public enum SessionOptionMode
-    {
-        Default,
-        Platform
-    }
-
-    public class FasterRcnnObjectDetector
+    public class FasterRcnnSample : IVisionSample
     {
         byte[] _model;
         Task _initializeTask;
-        SkiaSharpImageProcessor _skiaSharpProcessor;
+        FasterRcnnImageProcessor _fasterRcnnImageProcessor;
 
-        SkiaSharpImageProcessor SkiaSharpProcessor => _skiaSharpProcessor ??= new SkiaSharpImageProcessor();
+        FasterRcnnImageProcessor FasterRcnnImageProcessor => _fasterRcnnImageProcessor ??= new FasterRcnnImageProcessor();
 
-        public async Task<byte[]> GetImageWithObjectsAsync(byte[] sourceImage, SessionOptionMode sessionOptionMode = SessionOptionMode.Default)
+        public string Name => "Faster R-CNN";
+
+        public async Task<byte[]> ProcessImageAsync(byte[] sourceImage, ExecutionProviderOptions sessionOptionMode = ExecutionProviderOptions.CPU)
         {
             byte[] outputImage = null;
 
             await InitializeAsync().ConfigureAwait(false);
-            using var preprocessedImage = await Task.Run(() => SkiaSharpProcessor.PreprocessSourceImage(sourceImage)).ConfigureAwait(false);
-            var tensor = await Task.Run(() => SkiaSharpProcessor.GetTensorForImage(preprocessedImage)).ConfigureAwait(false);
+            using var preprocessedImage = await Task.Run(() => FasterRcnnImageProcessor.PreprocessSourceImage(sourceImage)).ConfigureAwait(false);
+            var tensor = await Task.Run(() => FasterRcnnImageProcessor.GetTensorForImage(preprocessedImage)).ConfigureAwait(false);
             var predictions = await Task.Run(() => GetPredictions(tensor, sessionOptionMode)).ConfigureAwait(false);
-            outputImage = await Task.Run(() => SkiaSharpProcessor.ApplyPredictionsToImage(predictions, preprocessedImage)).ConfigureAwait(false);
+            outputImage = await Task.Run(() => FasterRcnnImageProcessor.ApplyPredictionsToImage(predictions, preprocessedImage)).ConfigureAwait(false);
 
             return outputImage;
         }
 
-        List<Prediction> GetPredictions(Tensor<float> input, SessionOptionMode sessionOptionsMode = SessionOptionMode.Default)
+        List<FasterRcnnPrediction> GetPredictions(Tensor<float> input, ExecutionProviderOptions sessionOptionsMode = ExecutionProviderOptions.CPU)
         {
             // Setup inputs and outputs
             var inputs = new List<NamedOnnxValue> { NamedOnnxValue.CreateFromTensor("image", input) };
@@ -42,8 +38,8 @@ namespace VisionSample
             // Run inference
             using var options = new SessionOptions { GraphOptimizationLevel = GraphOptimizationLevel.ORT_ENABLE_ALL };
 
-            if (sessionOptionsMode == SessionOptionMode.Platform)
-                options.ApplyConfiguration(nameof(SessionOptionMode.Platform));
+            if (sessionOptionsMode == ExecutionProviderOptions.Platform)
+                options.ApplyConfiguration(nameof(ExecutionProviderOptions.Platform));
 
             using var session = new InferenceSession(_model, options);
             using IDisposableReadOnlyCollection<DisposableNamedOnnxValue> results = session.Run(inputs);
@@ -53,7 +49,7 @@ namespace VisionSample
             float[] boxes = resultsArray[0].AsEnumerable<float>().ToArray();
             long[] labels = resultsArray[1].AsEnumerable<long>().ToArray();
             float[] confidences = resultsArray[2].AsEnumerable<float>().ToArray();
-            var predictions = new List<Prediction>();
+            var predictions = new List<FasterRcnnPrediction>();
             var minConfidence = 0.7f;
 
             for (int i = 0; i < boxes.Length - 4; i += 4)
@@ -62,10 +58,10 @@ namespace VisionSample
 
                 if (confidences[index] >= minConfidence)
                 {
-                    predictions.Add(new Prediction
+                    predictions.Add(new FasterRcnnPrediction
                     {
-                        Box = new Box(boxes[i], boxes[i + 1], boxes[i + 2], boxes[i + 3]),
-                        Label = LabelMap.Labels[labels[index]],
+                        Box = new PredictionBox(boxes[i], boxes[i + 1], boxes[i + 2], boxes[i + 3]),
+                        Label = FasterRcnnLabelMap.Labels[labels[index]],
                         Confidence = confidences[index]
                     });
                 }
