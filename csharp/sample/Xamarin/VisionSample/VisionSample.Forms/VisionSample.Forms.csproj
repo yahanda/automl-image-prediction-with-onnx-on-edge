@@ -15,7 +15,7 @@
     <LangVersion>latestmajor</LangVersion>
   </PropertyGroup>
   <ItemGroup>
-    <PackageReference Include="Xamarin.Forms" Version="5.0.0.2125" />
+    <PackageReference Include="Xamarin.Forms" Version="5.0.0.2244" />
     <PackageReference Include="Xamarin.Essentials" Version="1.7.0" />
     <PackageReference Include="Xam.Plugin.Media" Version="5.0.1" />
   </ItemGroup>
