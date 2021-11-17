@@ -9,7 +9,8 @@ using Microsoft.ML.OnnxRuntime.Tensors;
 
 namespace VisionSample
 {
-    // See: https://github.com/onnx/models/tree/master/vision/classification/resnet#resnet
+    // See: https://github.com/onnx/models/tree/master/vision/classification/resnet#model
+    // Model download: https://github.com/onnx/models/blob/master/vision/classification/resnet/model/resnet50-v1-7.onnx
     public class ResNetSample : IVisionSample
     {
         public const string Identifier = "ResNet50 v2";

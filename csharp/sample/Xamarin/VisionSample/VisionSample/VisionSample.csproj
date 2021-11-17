@@ -17,6 +17,9 @@
     <EmbeddedResource Include="..\..\Models\resnet50-v1-7.onnx" Condition="Exists('..\..\Models\resnet50-v1-7.onnx')">
       <Link>ResNet50v2\resnet50.onnx</Link>
     </EmbeddedResource>
+        <EmbeddedResource Include="..\..\Models\version-RFB-320.onnx" Condition="Exists('..\..\Models\version-RFB-320.onnx')">
+      <Link>Ultraface\ultraface.onnx</Link>
+    </EmbeddedResource>
   </ItemGroup>
   <ItemGroup>
     <!-- TODO: Update to use official package once Xamarin support is added to it -->
@@ -26,9 +29,11 @@
   <ItemGroup>
     <None Remove="FasterRcnn\" />
     <None Remove="ResNet\" />
+    <None Remove="Ultraface\" />
   </ItemGroup>
   <ItemGroup>
     <Folder Include="FasterRcnn\" />
     <Folder Include="ResNet50v2\" />
+    <Folder Include="Ultraface\" />
   </ItemGroup>
 </Project>

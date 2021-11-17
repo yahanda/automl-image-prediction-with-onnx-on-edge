@@ -19,9 +19,11 @@ namespace VisionSample.Forms
     {
         FasterRcnnSample _fasterRcnnSample;
         ResNetSample _resnetSample;
+        UltrafaceSample _ultrafaceSample;
 
         FasterRcnnSample FasterRcnnSample => _fasterRcnnSample ??= new FasterRcnnSample();
         ResNetSample ResNetSample => _resnetSample ??= new ResNetSample();
+        UltrafaceSample UltrafaceSample => _ultrafaceSample ??= new UltrafaceSample();
 
         public MainPage()
         {
@@ -37,7 +39,8 @@ namespace VisionSample.Forms
 
             Samples.Items.Add(FasterRcnnSample.Name);
             Samples.Items.Add(ResNetSample.Name);
-            Samples.SelectedIndex = 1;
+            Samples.Items.Add(UltrafaceSample.Name);
+            Samples.SelectedIndex = 2;
         }
 
         async Task AcquireAndAnalyzeImageAsync(ImageAcquisitionMode acquisitionMode = ImageAcquisitionMode.Sample)
@@ -49,6 +52,13 @@ namespace VisionSample.Forms
             {
                 SetBusyState(true);
 
+                if (Samples.Items.Count == 0)
+                {
+                    SetBusyState(false);
+                    await DisplayAlert("No Samples", "Model files could not be found", "OK");
+                    return;
+                }
+
                 var imageData = acquisitionMode switch
                 {
                     ImageAcquisitionMode.Capture => await TakePhotoAsync(),
@@ -59,6 +69,10 @@ namespace VisionSample.Forms
                 if (imageData == null)
                 {
                     SetBusyState(false);
+
+                    if (acquisitionMode == ImageAcquisitionMode.Sample)
+                        await DisplayAlert("No Sample Image", $"No sample image for {Samples.SelectedItem}", "OK");
+
                     return;
                 }
 
@@ -73,6 +87,7 @@ namespace VisionSample.Forms
                 IVisionSample sample = Samples.SelectedItem switch
                 {
                     ResNetSample.Identifier => ResNetSample,
+                    UltrafaceSample.Identifier => UltrafaceSample,
                     _ => FasterRcnnSample
                 };
 
@@ -96,9 +111,13 @@ namespace VisionSample.Forms
 
             var imageName = Samples.SelectedItem switch
             {
+                FasterRcnnSample.Identifier => "demo.jpg",
                 ResNetSample.Identifier => "dog.jpg",
-                _ => "demo.jpg"
+                _ => null
             };
+
+            if (string.IsNullOrWhiteSpace(imageName))
+                return null;
 
             using Stream stream = assembly.GetManifestResourceStream($"{assembly.GetName().Name}.SampleImages.{imageName}");
             using MemoryStream memoryStream = new MemoryStream();
@@ -135,7 +154,7 @@ namespace VisionSample.Forms
 
             var bytes = await GetBytesFromPhotoFile(photo);
 
-            return bytes;
+            return SkiaSharpUtils.HandleOrientation(bytes);
         }
 
         async Task<byte[]> TakePhotoAsync()
@@ -149,7 +168,7 @@ namespace VisionSample.Forms
                 if (!CrossMedia.Current.IsCameraAvailable || !CrossMedia.Current.IsTakePhotoSupported)
                     throw new Exception("No camera available");
 
-                photo = await CrossMedia.Current.TakePhotoAsync(new StoreCameraMediaOptions()).ConfigureAwait(false);
+                photo = await CrossMedia.Current.TakePhotoAsync(new StoreCameraMediaOptions() { RotateImage = false }).ConfigureAwait(false);
             }
             catch (FeatureNotSupportedException fnsEx)
             {
@@ -170,7 +189,7 @@ namespace VisionSample.Forms
             var bytes = await GetBytesFromPhotoFile(photo);
             photo.Dispose();
 
-            return bytes;
+            return SkiaSharpUtils.HandleOrientation(bytes);
         }
 
         async Task<byte[]> GetBytesFromPhotoFile(MediaFile fileResult)

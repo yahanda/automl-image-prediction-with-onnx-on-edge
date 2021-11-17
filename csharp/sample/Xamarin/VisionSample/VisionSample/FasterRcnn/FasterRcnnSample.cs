@@ -7,6 +7,8 @@ using Microsoft.ML.OnnxRuntime.Tensors;
 
 namespace VisionSample
 {
+    // See: https://github.com/onnx/models/tree/master/vision/object_detection_segmentation/faster-rcnn#model
+    // Model download: https://github.com/onnx/models/blob/master/vision/object_detection_segmentation/faster-rcnn/model/FasterRCNN-10.onnx
     public class FasterRcnnSample : IVisionSample
     {
         public const string Identifier = "Faster R-CNN";
