@@ -1,5 +1,6 @@
 ﻿using System;
 using System.IO;
+using System.Linq;
 using System.Threading.Tasks;
 using Plugin.Media;
 using Plugin.Media.Abstractions;
@@ -17,13 +18,13 @@ namespace VisionSample.Forms
 
     public partial class MainPage : ContentPage
     {
-        FasterRcnnSample _fasterRcnnSample;
-        ResNetSample _resnetSample;
-        UltrafaceSample _ultrafaceSample;
+        IVisionSample _fasterRcnn;
+        IVisionSample _resnet;
+        IVisionSample _ultraface;
 
-        FasterRcnnSample FasterRcnnSample => _fasterRcnnSample ??= new FasterRcnnSample();
-        ResNetSample ResNetSample => _resnetSample ??= new ResNetSample();
-        UltrafaceSample UltrafaceSample => _ultrafaceSample ??= new UltrafaceSample();
+        IVisionSample FasterRcnn => _fasterRcnn ??= new FasterRcnnSample();
+        IVisionSample ResNet => _resnet ??= new ResNetSample();
+        IVisionSample Ultraface => _ultraface ??= new UltrafaceSample();
 
         public MainPage()
         {
@@ -37,10 +38,19 @@ namespace VisionSample.Forms
             ExecutionProviderOptions.Items.Add(Device.RuntimePlatform == Device.Android ? "NNAPI" : "Core ML");
             ExecutionProviderOptions.SelectedIndex = 1;
 
-            Samples.Items.Add(FasterRcnnSample.Name);
-            Samples.Items.Add(ResNetSample.Name);
-            Samples.Items.Add(UltrafaceSample.Name);
-            Samples.SelectedIndex = 2;
+            if (ResourceLoader.EmbeddedResourceExists(FasterRcnnSample.ModelFilename))
+                Samples.Items.Add(FasterRcnn.Name);
+
+            if (ResourceLoader.EmbeddedResourceExists(ResNetSample.ModelFilename))
+                Samples.Items.Add(ResNet.Name);
+
+            if (ResourceLoader.EmbeddedResourceExists(UltrafaceSample.ModelFilename))
+                Samples.Items.Add(Ultraface.Name);
+
+            if (Samples.Items.Any())
+                Samples.SelectedIndex = Samples.Items.IndexOf(Samples.Items.Last());
+            else
+                Samples.IsEnabled = false;
         }
 
         async Task AcquireAndAnalyzeImageAsync(ImageAcquisitionMode acquisitionMode = ImageAcquisitionMode.Sample)
@@ -52,7 +62,7 @@ namespace VisionSample.Forms
             {
                 SetBusyState(true);
 
-                if (Samples.Items.Count == 0)
+                if (Samples.Items.Count == 0 || Samples.SelectedItem == null)
                 {
                     SetBusyState(false);
                     await DisplayAlert("No Samples", "Model files could not be found", "OK");
@@ -86,9 +96,9 @@ namespace VisionSample.Forms
 
                 IVisionSample sample = Samples.SelectedItem switch
                 {
-                    ResNetSample.Identifier => ResNetSample,
-                    UltrafaceSample.Identifier => UltrafaceSample,
-                    _ => FasterRcnnSample
+                    ResNetSample.Identifier => ResNet,
+                    UltrafaceSample.Identifier => Ultraface,
+                    _ => FasterRcnn
                 };
 
                 var result = await sample.ProcessImageAsync(imageData, sessionOptionMode);
@@ -168,7 +178,7 @@ namespace VisionSample.Forms
                 if (!CrossMedia.Current.IsCameraAvailable || !CrossMedia.Current.IsTakePhotoSupported)
                     throw new Exception("No camera available");
 
-                photo = await CrossMedia.Current.TakePhotoAsync(new StoreCameraMediaOptions() { RotateImage = false }).ConfigureAwait(false);
+                photo = await CrossMedia.Current.TakePhotoAsync(new StoreCameraMediaOptions()).ConfigureAwait(false);
             }
             catch (FeatureNotSupportedException fnsEx)
             {

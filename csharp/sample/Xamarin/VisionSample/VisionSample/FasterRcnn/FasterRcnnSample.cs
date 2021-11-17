@@ -1,5 +1,4 @@
 ﻿using System.Collections.Generic;
-using System.IO;
 using System.Linq;
 using System.Threading.Tasks;
 using Microsoft.ML.OnnxRuntime;
@@ -9,27 +8,20 @@ namespace VisionSample
 {
     // See: https://github.com/onnx/models/tree/master/vision/object_detection_segmentation/faster-rcnn#model
     // Model download: https://github.com/onnx/models/blob/master/vision/object_detection_segmentation/faster-rcnn/model/FasterRCNN-10.onnx
-    public class FasterRcnnSample : IVisionSample
+    public class FasterRcnnSample : VisionSampleBase<FasterRcnnImageProcessor>
     {
         public const string Identifier = "Faster R-CNN";
+        public const string ModelFilename = "faster_rcnn.onnx";
 
-        byte[] _model;
-        Task _initializeTask;
-        FasterRcnnImageProcessor _fasterRcnnImageProcessor;
+        public FasterRcnnSample()
+            : base(Identifier, ModelFilename) {}
 
-        FasterRcnnImageProcessor FasterRcnnImageProcessor => _fasterRcnnImageProcessor ??= new FasterRcnnImageProcessor();
-
-        public string Name => Identifier;
-
-        public FasterRcnnSample() => _ = InitializeAsync();
-
-        public async Task<ImageProcessingResult> ProcessImageAsync(byte[] sourceImage, ExecutionProviderOptions sessionOptionMode = ExecutionProviderOptions.CPU)
+        protected override async Task<ImageProcessingResult> OnProcessImageAsync(byte[] sourceImage, ExecutionProviderOptions sessionOptionMode = ExecutionProviderOptions.CPU)
         {
-            await InitializeAsync().ConfigureAwait(false);
-            using var preprocessedImage = await Task.Run(() => FasterRcnnImageProcessor.PreprocessSourceImage(sourceImage)).ConfigureAwait(false);
-            var tensor = await Task.Run(() => FasterRcnnImageProcessor.GetTensorForImage(preprocessedImage)).ConfigureAwait(false);
+            using var preprocessedImage = await Task.Run(() => ImageProcessor.PreprocessSourceImage(sourceImage)).ConfigureAwait(false);
+            var tensor = await Task.Run(() => ImageProcessor.GetTensorForImage(preprocessedImage)).ConfigureAwait(false);
             var predictions = await Task.Run(() => GetPredictions(tensor, sessionOptionMode)).ConfigureAwait(false);
-            var outputImage = await Task.Run(() => FasterRcnnImageProcessor.ApplyPredictionsToImage(predictions, preprocessedImage)).ConfigureAwait(false);
+            var outputImage = await Task.Run(() => ImageProcessor.ApplyPredictionsToImage(predictions, preprocessedImage)).ConfigureAwait(false);
 
             return new ImageProcessingResult(outputImage);
         }
@@ -45,7 +37,7 @@ namespace VisionSample
             if (sessionOptionsMode == ExecutionProviderOptions.Platform)
                 options.ApplyConfiguration(nameof(ExecutionProviderOptions.Platform));
 
-            using var session = new InferenceSession(_model, options);
+            using var session = new InferenceSession(Model, options);
             using IDisposableReadOnlyCollection<DisposableNamedOnnxValue> results = session.Run(inputs);
 
             // Postprocess to get predictions
@@ -72,25 +64,6 @@ namespace VisionSample
             }
 
             return predictions;
-        }
-
-        public Task InitializeAsync()
-        {
-            if (_initializeTask == null || _initializeTask.IsFaulted)
-                _initializeTask = Task.Run(() => Initialize());
-
-            return _initializeTask;
-        }
-
-        void Initialize()
-        {
-            var assembly = GetType().Assembly;
-
-            using Stream stream = assembly.GetManifestResourceStream($"{assembly.GetName().Name}.FasterRcnn.faster_rcnn.onnx");
-            using MemoryStream memoryStream = new MemoryStream();
-
-            stream.CopyTo(memoryStream);
-            _model = memoryStream.ToArray();
         }
     }
 }

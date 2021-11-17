@@ -1,6 +1,5 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.IO;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
@@ -11,27 +10,20 @@ namespace VisionSample
 {
     // See: https://github.com/onnx/models/tree/master/vision/classification/resnet#model
     // Model download: https://github.com/onnx/models/blob/master/vision/classification/resnet/model/resnet50-v1-7.onnx
-    public class ResNetSample : IVisionSample
+    public class ResNetSample : VisionSampleBase<ResNetImageProcessor>
     {
         public const string Identifier = "ResNet50 v2";
+        public const string ModelFilename = "resnet50.onnx";
 
-        byte[] _model;
-        Task _initializeTask;
-        ResNetImageProcessor _resNetImageProcessor;
+        public ResNetSample()
+            : base(Identifier, ModelFilename) {}
 
-        ResNetImageProcessor ResNetImageProcessor => _resNetImageProcessor ??= new ResNetImageProcessor();
-
-        public ResNetSample() => _ = InitializeAsync();
-
-        public string Name => Identifier;
-
-        public async Task<ImageProcessingResult> ProcessImageAsync(byte[] image, ExecutionProviderOptions executionProvider)
+        protected override async Task<ImageProcessingResult> OnProcessImageAsync(byte[] image, ExecutionProviderOptions executionProvider)
         {
-            await InitializeAsync().ConfigureAwait(false);
-            using var preprocessedImage = await Task.Run(() => ResNetImageProcessor.PreprocessSourceImage(image)).ConfigureAwait(false);
-            var tensor = await Task.Run(() => ResNetImageProcessor.GetTensorForImage(preprocessedImage)).ConfigureAwait(false);
+            using var preprocessedImage = await Task.Run(() => ImageProcessor.PreprocessSourceImage(image)).ConfigureAwait(false);
+            var tensor = await Task.Run(() => ImageProcessor.GetTensorForImage(preprocessedImage)).ConfigureAwait(false);
             var predictions = await Task.Run(() => GetPredictions(tensor, executionProvider)).ConfigureAwait(false);
-            var preprocessedImageData = await Task.Run(() => ResNetImageProcessor.GetBytesForBitmap(preprocessedImage)).ConfigureAwait(false);
+            var preprocessedImageData = await Task.Run(() => ImageProcessor.GetBytesForBitmap(preprocessedImage)).ConfigureAwait(false);
 
             var caption = string.Empty;
 
@@ -62,7 +54,7 @@ namespace VisionSample
             if (executionProvider == ExecutionProviderOptions.Platform)
                 options.ApplyConfiguration(nameof(ExecutionProviderOptions.Platform));
 
-            using var session = new InferenceSession(_model, options);
+            using var session = new InferenceSession(Model, options);
             using IDisposableReadOnlyCollection<DisposableNamedOnnxValue> results = session.Run(inputs);
 
             // Postprocess to get softmax vector
@@ -81,25 +73,6 @@ namespace VisionSample
                 .Take(10);
 
             return top10.ToList();
-        }
-
-        public Task InitializeAsync()
-        {
-            if (_initializeTask == null || _initializeTask.IsFaulted)
-                _initializeTask = Task.Run(() => Initialize());
-
-            return _initializeTask;
-        }
-
-        void Initialize()
-        {
-            var assembly = GetType().Assembly;
-
-            using Stream stream = assembly.GetManifestResourceStream($"{assembly.GetName().Name}.ResNet50v2.resnet50.onnx");
-            using MemoryStream memoryStream = new MemoryStream();
-
-            stream.CopyTo(memoryStream);
-            _model = memoryStream.ToArray();
         }
     }
 }

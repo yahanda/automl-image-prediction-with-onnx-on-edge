@@ -1,5 +1,4 @@
 ﻿using System.Collections.Generic;
-using System.IO;
 using System.Linq;
 using System.Threading.Tasks;
 using Microsoft.ML.OnnxRuntime;
@@ -9,37 +8,21 @@ namespace VisionSample
 {
     // See: https://github.com/onnx/models/tree/master/vision/body_analysis/ultraface#model
     // Model download: https://github.com/onnx/models/blob/master/vision/body_analysis/ultraface/models/version-RFB-320.onnx
-    public class UltrafaceSample : IVisionSample
+    public class UltrafaceSample : VisionSampleBase<UltrafaceImageProcessor>
     {
         public const string Identifier = "Ultraface";
+        public const string ModelFilename = "ultraface.onnx";
 
-        byte[] _model;
-        Task _initializeTask;
-        UltrafaceImageProcessor _ultrafaceImageProcessor;
+        public UltrafaceSample()
+            : base(Identifier, ModelFilename) {}
 
-        UltrafaceImageProcessor UltrafaceImageProcessor => _ultrafaceImageProcessor ??= new UltrafaceImageProcessor();
-
-        public UltrafaceSample() => _ = InitializeAsync();
-
-        public string Name => Identifier;
-
-        public Task InitializeAsync()
+        protected override async Task<ImageProcessingResult> OnProcessImageAsync(byte[] image, ExecutionProviderOptions executionProvider)
         {
-            if (_initializeTask == null || _initializeTask.IsFaulted)
-                _initializeTask = Task.Run(() => Initialize());
-
-            return _initializeTask;
-        }
-
-        public async Task<ImageProcessingResult> ProcessImageAsync(byte[] image, ExecutionProviderOptions executionProvider)
-        {
-            await InitializeAsync().ConfigureAwait(false);
-
-            using var sourceImage = await Task.Run(() => UltrafaceImageProcessor.GetImageFromBytes(image, 800f)).ConfigureAwait(false);
-            using var preprocessedImage = await Task.Run(() => UltrafaceImageProcessor.PreprocessSourceImage(image)).ConfigureAwait(false);
-            var tensor = await Task.Run(() => UltrafaceImageProcessor.GetTensorForImage(preprocessedImage)).ConfigureAwait(false);
+            using var sourceImage = await Task.Run(() => ImageProcessor.GetImageFromBytes(image, 800f)).ConfigureAwait(false);
+            using var preprocessedImage = await Task.Run(() => ImageProcessor.PreprocessSourceImage(image)).ConfigureAwait(false);
+            var tensor = await Task.Run(() => ImageProcessor.GetTensorForImage(preprocessedImage)).ConfigureAwait(false);
             var predictions = await Task.Run(() => GetPredictions(tensor, sourceImage.Width, sourceImage.Height, executionProvider)).ConfigureAwait(false);
-            var outputImage = await Task.Run(() => UltrafaceImageProcessor.ApplyPredictionsToImage(predictions, sourceImage)).ConfigureAwait(false);
+            var outputImage = await Task.Run(() => ImageProcessor.ApplyPredictionsToImage(predictions, sourceImage)).ConfigureAwait(false);
 
             return new ImageProcessingResult(outputImage);
         }
@@ -55,7 +38,7 @@ namespace VisionSample
             if (executionProvider == ExecutionProviderOptions.Platform)
                 options.ApplyConfiguration(nameof(ExecutionProviderOptions.Platform));
 
-            using var session = new InferenceSession(_model, options);
+            using var session = new InferenceSession(Model, options);
             using IDisposableReadOnlyCollection<DisposableNamedOnnxValue> results = session.Run(inputs);
 
             // Postprocess
@@ -83,17 +66,6 @@ namespace VisionSample
                     boxes[boxOffset + 2] * sourceImageWidth,
                     boxes[boxOffset + 3] * sourceImageHeight)
             }};
-        }
-
-        void Initialize()
-        {
-            var assembly = GetType().Assembly;
-
-            using Stream stream = assembly.GetManifestResourceStream($"{assembly.GetName().Name}.Ultraface.ultraface.onnx");
-            using MemoryStream memoryStream = new MemoryStream();
-
-            stream.CopyTo(memoryStream);
-            _model = memoryStream.ToArray();
         }
     }
 }
