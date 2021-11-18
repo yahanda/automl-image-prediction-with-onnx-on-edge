@@ -1,7 +1,13 @@
 <Project Sdk="MSBuild.Sdk.Extras/3.0.22">
-
-  <PropertyGroup>
+  <!-- only include the Xamarin mobile targets if those workloads are installed -->
+  <PropertyGroup Condition="Exists('$(MSBuildExtensionsPath)\Xamarin\Android') AND Exists('$(MSBuildExtensionsPath)\Xamarin\iOS')">
     <TargetFrameworks>netstandard1.1;netstandard2.0;xamarinios10;monoandroid11.0;net5.0;netcoreapp3.1</TargetFrameworks>
+    
+  </PropertyGroup>
+  <PropertyGroup Condition="!(Exists('$(MSBuildExtensionsPath)\Xamarin\Android') AND Exists('$(MSBuildExtensionsPath)\Xamarin\iOS'))">
+    <TargetFrameworks>netstandard1.1;netstandard2.0;net5.0;netcoreapp3.1</TargetFrameworks>
+  </PropertyGroup>
+  <PropertyGroup>
     <Platforms>AnyCPU;x86</Platforms>
     <LangVersion>7.2</LangVersion>
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
