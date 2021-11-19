@@ -1784,6 +1784,10 @@ def build_nuget_package(source_dir, build_dir, configs, use_cuda, use_openvino, 
     csharp_build_dir = os.path.join(source_dir, 'csharp')
     is_linux_build = derive_linux_build_property()
 
+    # in most cases we don't want/need to include the Xamarin mobile targets, as doing so means the Xamarin
+    # mobile workloads must be installed on the machine.
+    sln = "OnnxRuntime.DesktopOnly.CSharp.sln"
+
     # derive package name and execution provider based on the build args
     target_name = "/t:CreatePackage"
     execution_provider = "/p:ExecutionProvider=\"None\""
@@ -1805,14 +1809,15 @@ def build_nuget_package(source_dir, build_dir, configs, use_cuda, use_openvino, 
     elif use_nuphar:
         package_name = "/p:OrtPackageId=\"Microsoft.ML.OnnxRuntime.Nuphar\""
     else:
-        pass
+        # general build so use the solution file that includes Xamarin mobile targets
+        sln = "OnnxRuntime.CSharp.sln"
 
     # set build directory based on build_dir arg
     native_dir = os.path.normpath(os.path.join(source_dir, build_dir))
     ort_build_dir = "/p:OnnxRuntimeBuildDirectory=\"" + native_dir + "\""
 
     # dotnet restore
-    cmd_args = ["dotnet", "restore", "OnnxRuntime.CSharp.sln", "--configfile", "Nuget.CSharp.config"]
+    cmd_args = ["dotnet", "restore", sln, "--configfile", "Nuget.CSharp.config"]
     run_subprocess(cmd_args, cwd=csharp_build_dir)
 
     # build csharp bindings and create nuget package for each config
@@ -1825,8 +1830,7 @@ def build_nuget_package(source_dir, build_dir, configs, use_cuda, use_openvino, 
         configuration = "/p:Configuration=\"" + config + "\""
 
         if not use_winml:
-            cmd_args = ["dotnet", "msbuild", "OnnxRuntime.CSharp.sln", configuration, package_name, is_linux_build,
-                        ort_build_dir]
+            cmd_args = ["dotnet", "msbuild", sln, configuration, package_name, is_linux_build, ort_build_dir]
             run_subprocess(cmd_args, cwd=csharp_build_dir)
         else:
             winml_interop_dir = os.path.join(source_dir, "csharp", "src", "Microsoft.AI.MachineLearning.Interop")
