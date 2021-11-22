@@ -41,6 +41,7 @@ jobs:
     DoEsrp: ${{ parameters.DoEsrp }}
     RunTests: 'false'
     NuPackScript: |
+     cat src\Microsoft.ML.OnnxRuntime\obj\project.assets.json
      msbuild $(Build.SourcesDirectory)\csharp\OnnxRuntime.CSharp.proj /p:Configuration=RelWithDebInfo /p:TargetArchitecture=x86 /t:CreatePackage /p:OrtPackageId=Microsoft.ML.OnnxRuntime.DirectML
      cd $(Build.BinariesDirectory)\RelWithDebInfo\RelWithDebInfo\
      ren Microsoft.ML.OnnxRuntime.DirectML.* win-dml-x86.zip
