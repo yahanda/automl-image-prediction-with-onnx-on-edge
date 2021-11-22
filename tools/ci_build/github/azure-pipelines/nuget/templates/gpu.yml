@@ -19,6 +19,7 @@ jobs:
     CudaVersion: '11.4'
     OrtPackageId: 'Microsoft.ML.OnnxRuntime.DirectML'
     NuPackScript: |
+     cat src\Microsoft.ML.OnnxRuntime\obj\project.assets.json
      msbuild $(Build.SourcesDirectory)\csharp\OnnxRuntime.CSharp.proj /p:Configuration=RelWithDebInfo /t:CreatePackage /p:OrtPackageId=Microsoft.ML.OnnxRuntime.DirectML
      copy $(Build.SourcesDirectory)\csharp\src\Microsoft.ML.OnnxRuntime\bin\RelWithDebInfo\*.nupkg $(Build.ArtifactStagingDirectory)
      copy $(Build.BinariesDirectory)\RelWithDebInfo\RelWithDebInfo\*.nupkg $(Build.ArtifactStagingDirectory)

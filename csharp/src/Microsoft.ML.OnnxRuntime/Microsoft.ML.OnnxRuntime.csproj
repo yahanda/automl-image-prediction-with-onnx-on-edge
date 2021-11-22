@@ -1,8 +1,12 @@
 <Project Sdk="MSBuild.Sdk.Extras/3.0.22">
-  <!-- only include the Xamarin mobile targets if those workloads are installed -->
-  <PropertyGroup Condition="Exists('$(MSBuildExtensionsPath)\Xamarin\Android') AND Exists('$(MSBuildExtensionsPath)\Xamarin\iOS')">
+  <PropertyGroup>
+    <!--- packaging properties -->
+    <OrtPackageId Condition=" '$(OrtPackageId)' == '' ">Microsoft.ML.OnnxRuntime</OrtPackageId>
+  </PropertyGroup>
+
+  <!-- only include the Xamarin mobile targets for the main ORT package, and those workloads are installed -->
+  <PropertyGroup Condition="'$(OrtPackageId' == 'Microsoft.ML.OnnxRuntime' AND Exists('$(MSBuildExtensionsPath)\Xamarin\Android') AND !Exists('$(MSBuildExtensionsPath)\Xamarin\iOS')">
     <TargetFrameworks>netstandard1.1;netstandard2.0;xamarinios10;monoandroid11.0;net5.0;netcoreapp3.1</TargetFrameworks>
-    
   </PropertyGroup>
   <PropertyGroup Condition="!(Exists('$(MSBuildExtensionsPath)\Xamarin\Android') AND Exists('$(MSBuildExtensionsPath)\Xamarin\iOS'))">
     <TargetFrameworks>netstandard1.1;netstandard2.0;net5.0;netcoreapp3.1</TargetFrameworks>
@@ -24,9 +28,6 @@
     <EnableDefaultItems>false</EnableDefaultItems>
     <EnableDefaultCompileItems>false</EnableDefaultCompileItems>
     <DebugType>portable</DebugType>
-
-    <!--- packaging properties -->
-    <OrtPackageId Condition=" '$(OrtPackageId)' == '' ">Microsoft.ML.OnnxRuntime</OrtPackageId>
 
     <!--- The package name is always hardcoded as the package created by this project only contains managed assemblies -->
     <!--- The parameter OrtPackageId is only used for some conditional logic below -->    

@@ -211,6 +211,7 @@ jobs:
          ${{ parameters.NuPackScript }}
         workingDirectory: '$(Build.SourcesDirectory)\csharp'
         displayName: 'Create NuGet Package'
+        failOnStderr: true
 
       - task: PublishPipelineArtifact@0
         displayName: 'Publish Pipeline Artifact: ${{ parameters.ArtifactName }}'
