@@ -4,13 +4,21 @@
     <OrtPackageId Condition="'$(OrtPackageId)' == ''">Microsoft.ML.OnnxRuntime</OrtPackageId>
   </PropertyGroup>
 
-  <!-- only include the Xamarin mobile targets for the main ORT package -->
-  <PropertyGroup Condition="'$(OrtPackageId)' == 'Microsoft.ML.OnnxRuntime'">
-    <TargetFrameworks>netstandard1.1;netstandard2.0;xamarinios10;monoandroid11.0;net5.0;netcoreapp3.1</TargetFrameworks>
-  </PropertyGroup>
-  <PropertyGroup Condition="'$(OrtPackageId)' != 'Microsoft.ML.OnnxRuntime'">
-    <TargetFrameworks>netstandard1.1;netstandard2.0;net5.0;netcoreapp3.1</TargetFrameworks>
-  </PropertyGroup>
+  <!-- only include the Xamarin mobile targets for the main ORT package, 
+       and only if the mobile workloads are installed -->
+  <Choose>
+    <When Condition="'$(OrtPackageId)' == 'Microsoft.ML.OnnxRuntime' AND Exists('$(MSBuildExtensionsPath)\Xamarin\Android') AND Exists('$(MSBuildExtensionsPath)\Xamarin\iOS')">
+      <PropertyGroup>
+        <TargetFrameworks>netstandard1.1;netstandard2.0;xamarinios10;monoandroid11.0;net5.0;netcoreapp3.1</TargetFrameworks>
+      </PropertyGroup>      
+    </When>
+    <Otherwise>
+      <PropertyGroup>
+        <TargetFrameworks>netstandard1.1;netstandard2.0;net5.0;netcoreapp3.1</TargetFrameworks>
+      </PropertyGroup>    
+   </Otherwise>
+  </Choose>
+  
   <PropertyGroup>
     <Platforms>AnyCPU;x86</Platforms>
     <LangVersion>7.2</LangVersion>
