@@ -1761,9 +1761,7 @@ def build_nuget_package(source_dir, build_dir, configs, use_cuda, use_openvino, 
 
     # in most cases we don't want/need to include the Xamarin mobile targets, as doing so means the Xamarin
     # mobile workloads must be installed on the machine.
-    # TEMPORARY TEST - see if the condition on OrtPackageId is sufficient and we don't need a desktop-only sln
-    # sln = "OnnxRuntime.DesktopOnly.CSharp.sln"
-    sln = "OnnxRuntime.CSharp.sln"
+    sln = "OnnxRuntime.DesktopOnly.CSharp.sln"
 
     # derive package name and execution provider based on the build args
     target_name = "/t:CreatePackage"
