@@ -17,7 +17,7 @@ Classifies the major object in the image into 1,000 pre-defined classes.
 
 Lightweight face detection model designed for edge computing devices providing detection boxes and scores for a given image.
 
-The sample also demonstrates how to switch between the default **CPU EP (Execution Provider)** and platform-specific options. In this case, [NNAPI]() for Android and [Core ML]() for iOS.
+The sample also demonstrates how to switch between the default **CPU EP ([Execution Provider](https://onnxruntime.ai/docs/execution-providers))** and platform-specific options. In this case, [NNAPI](https://onnxruntime.ai/docs/execution-providers/NNAPI-ExecutionProvider.html) for Android and [Core ML](https://onnxruntime.ai/docs/execution-providers/CoreML-ExecutionProvider.html) for iOS.
 
 ## Getting Started
 
@@ -25,10 +25,12 @@ The sample also demonstrates how to switch between the default **CPU EP (Executi
 >   - Get the managed and native nuget packages from the internal Zip-Nuget-Java packaging pipeline for a build of master
 >   - Put those packages in a local directory
 >   - Update the nuget.config to point to that directory
+>
+> There are some [known issues](#known-issues) that could impact aspects of the sample.
 
 The sample should build and run as-is, but you must include the model(s) you wish to explore in the appropraite directory for them to appear as options. 
 
-The [VisionSample]() looks for model files in a folder in this directory called **Models**. You must create this folder if you have not done so already. 
+The [VisionSample](VisionSample/VisionSample.sln) looks for model files in a folder in this directory called **Models**. You must create this folder if you have not done so already. 
 
 From this directory:
 ```
@@ -43,15 +45,16 @@ From this directory:
 > wget <model_url>
 ```
 
-**NOTE:** You may need to reload [VisionSample.csproj](VisionSample/VisionSample.csproj) before newly added model files will appear in [Visual Studio Solution Explorer](https://docs.microsoft.com/visualstudio/ide/use-solution-explorer?view=vs-2022). 
+> [!NOTE] 
+> You may need to reload [VisionSample.csproj](VisionSample/VisionSample.csproj) before newly added model files will appear in [Visual Studio Solution Explorer](https://docs.microsoft.com/visualstudio/ide/use-solution-explorer?view=vs-2022).
 
 ### Model Downloads
 
 | MODEL  | DOWNLOAD URL | Size   |
 | ------ | ------------ | ------ |
-| Faster R-CNN  | https://github.com/onnx/models/blob/f064171f7dd8e962a8a5b34eac8e1bcf83cebbde/vision/object_detection_segmentation/faster-rcnn/model/FasterRCNN-10.onnx | 97.7 MB |
+| Faster R-CNN  | https://github.com/onnx/models/blob/f064171f7dd8e962a8a5b34eac8e1bcf83cebbde/vision/object_detection_segmentation/faster-rcnn/model/FasterRCNN-10.onnx | 160.0 MB |
 | ResNet  | https://github.com/onnx/models/raw/f064171f7dd8e962a8a5b34eac8e1bcf83cebbde/vision/classification/resnet/model/resnet50-v2-7.onnx | 97.7 MB |
-| Ultraface  | https://github.com/onnx/models/raw/f064171f7dd8e962a8a5b34eac8e1bcf83cebbde/vision/body_analysis/ultraface/models/version-RFB-320.onnx | 97.7 MB |
+| Ultraface  | https://github.com/onnx/models/raw/f064171f7dd8e962a8a5b34eac8e1bcf83cebbde/vision/body_analysis/ultraface/models/version-RFB-320.onnx | 1.21 MB |
 
 ## Known Issues
 
