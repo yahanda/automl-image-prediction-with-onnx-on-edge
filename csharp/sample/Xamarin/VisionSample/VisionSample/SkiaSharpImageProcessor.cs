@@ -6,10 +6,10 @@ using SkiaSharp;
 
 namespace VisionSample
 {
-    public class SkiaSharpImageProcessor<TPrediction> : IImageProcessor<SKBitmap, TPrediction>
+    public class SkiaSharpImageProcessor<TPrediction, TTensor> : IImageProcessor<SKBitmap, TPrediction, TTensor>
     {
         protected virtual SKBitmap OnPreprocessSourceImage(SKBitmap sourceImage) => sourceImage;
-        protected virtual Tensor<float> OnGetTensorForImage(SKBitmap image) => throw new NotImplementedException();
+        protected virtual Tensor<TTensor> OnGetTensorForImage(SKBitmap image) => throw new NotImplementedException();
         protected virtual void OnPrepareToApplyPredications(SKBitmap image, SKCanvas canvas) { }
         protected virtual void OnApplyPrediction(TPrediction prediction, SKPaint textPaint, SKPaint rectPaint, SKCanvas canvas) { }
 
@@ -52,7 +52,7 @@ namespace VisionSample
             return bytes;
         }
 
-        public Tensor<float> GetTensorForImage(SKBitmap image)
+        public Tensor<TTensor> GetTensorForImage(SKBitmap image)
             => OnGetTensorForImage(image);
 
         public Size GetSizeForSourceImage(byte[] sourceImage)
