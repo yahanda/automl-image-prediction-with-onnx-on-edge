@@ -26,7 +26,7 @@ The sample also demonstrates how to switch between the default **CPU EP ([Execut
 >   - Put those packages in a local directory
 >   - Update the nuget.config to point to that directory
 >
-> There are some [known issues](#known-issues) that could impact aspects of the sample.
+> There are some [known issues](#known-issues) that could impact aspects of the sample on specific devices or environments. See [known issues section](#known-issues) for workarounds.
 
 The sample should build and run as-is, but you must include the model(s) you wish to explore in the appropraite directory for them to appear as options. 
 
