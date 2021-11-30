@@ -4,7 +4,7 @@ using SkiaSharp;
 
 namespace VisionSample
 {
-    public class FasterRcnnImageProcessor : SkiaSharpImageProcessor<FasterRcnnPrediction>
+    public class FasterRcnnImageProcessor : SkiaSharpImageProcessor<FasterRcnnPrediction, float>
     {
         protected override SKBitmap OnPreprocessSourceImage(SKBitmap sourceImage)
         {

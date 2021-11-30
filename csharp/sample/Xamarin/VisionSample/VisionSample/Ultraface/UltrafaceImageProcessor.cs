@@ -4,7 +4,7 @@ using SkiaSharp;
 
 namespace VisionSample
 {
-    public class UltrafaceImageProcessor : SkiaSharpImageProcessor<UltrafacePrediction>
+    public class UltrafaceImageProcessor : SkiaSharpImageProcessor<UltrafacePrediction, float>
     {
         const int RequiredWidth = 320;
         const int RequiredHeight = 240;

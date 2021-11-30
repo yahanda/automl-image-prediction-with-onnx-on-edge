@@ -4,7 +4,7 @@ using SkiaSharp;
 
 namespace VisionSample
 {
-    public class ResNetImageProcessor : SkiaSharpImageProcessor<ResNetPrediction>
+    public class ResNetImageProcessor : SkiaSharpImageProcessor<ResNetPrediction, float>
     {
         const int RequiredHeight = 224;
         const int RequiredWidth = 224;
