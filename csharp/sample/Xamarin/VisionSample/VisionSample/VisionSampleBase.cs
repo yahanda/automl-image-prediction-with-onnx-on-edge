@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Threading.Tasks;
+using Microsoft.ML.OnnxRuntime;
 
 namespace VisionSample
 {
@@ -10,6 +11,8 @@ namespace VisionSample
         string _modelName;
         Task _initializeTask;
         TImageProcessor _imageProcessor;
+        InferenceSession _cpuSession;
+        InferenceSession _platformSession;
 
         public VisionSampleBase(string name, string modelName)
         {
@@ -21,6 +24,8 @@ namespace VisionSample
         public string Name => _name;
         public string ModelName => _modelName;
         public byte[] Model => _model;
+        public InferenceSession CpuSession => _cpuSession;
+        public InferenceSession PlatformSession => _platformSession;
         public TImageProcessor ImageProcessor => _imageProcessor ??= new TImageProcessor();
 
         protected virtual Task<ImageProcessingResult> OnProcessImageAsync(byte[] image, ExecutionProviderOptions executionProvider) => throw new NotImplementedException();
@@ -39,6 +44,11 @@ namespace VisionSample
             return await OnProcessImageAsync(image, executionProvider);
         }
 
-        void Initialize() => _model = ResourceLoader.GetEmbeddedResource(ModelName);
+        void Initialize()
+        {
+            _model = ResourceLoader.GetEmbeddedResource(ModelName);
+            _cpuSession = new InferenceSession(_model);
+            _platformSession = new InferenceSession(_model, SessionOptionsContainer.Create(nameof(ExecutionProviderOptions.Platform)));
+        }
     }
 }

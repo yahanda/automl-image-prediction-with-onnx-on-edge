@@ -14,17 +14,19 @@
   <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Release|AnyCPU' ">
     <LangVersion>latestmajor</LangVersion>
   </PropertyGroup>
+
   <ItemGroup>
     <PackageReference Include="Xamarin.Forms" Version="5.0.0.2244" />
     <PackageReference Include="Xamarin.Essentials" Version="1.7.0" />
     <PackageReference Include="Xam.Plugin.Media" Version="5.0.1" />
   </ItemGroup>
+
   <ItemGroup>
     <ProjectReference Include="..\VisionSample\VisionSample.csproj" />
   </ItemGroup>
+
   <ItemGroup>
-    <EmbeddedResource Include="SampleImages\demo.jpg" />
     <EmbeddedResource Include="SampleImages\dog.jpg" />
-    <EmbeddedResource Include="SampleImages\ssdmobilenet_sample.jpg" />
   </ItemGroup>
+
 </Project>
