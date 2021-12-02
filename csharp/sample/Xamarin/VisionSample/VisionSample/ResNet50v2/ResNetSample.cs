@@ -49,12 +49,7 @@ namespace VisionSample
             var inputs = new List<NamedOnnxValue> { NamedOnnxValue.CreateFromTensor("data", input) };
 
             // Run inference
-            using var options = new SessionOptions { GraphOptimizationLevel = GraphOptimizationLevel.ORT_ENABLE_ALL };
-
-            if (executionProvider == ExecutionProviderOptions.Platform)
-                options.ApplyConfiguration(nameof(ExecutionProviderOptions.Platform));
-
-            using var session = new InferenceSession(Model, options);
+            var session = executionProvider == ExecutionProviderOptions.CPU ? CpuSession : PlatformSession;
             using IDisposableReadOnlyCollection<DisposableNamedOnnxValue> results = session.Run(inputs);
 
             // Postprocess to get softmax vector

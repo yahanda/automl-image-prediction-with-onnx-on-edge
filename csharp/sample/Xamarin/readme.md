@@ -5,10 +5,6 @@ The [VisionSample](VisionSample/VisionSample.sln) demonstrates the use of severa
 ## Overview
 The sample enables you to take/pick a photo on the device or use a sample image, if one is provided, to explore the following models.
 
-### [Faster R-CNN](https://github.com/onnx/models/blob/f064171f7dd8e962a8a5b34eac8e1bcf83cebbde/vision/object_detection_segmentation/faster-rcnn)
-
-Detects 80 different classes in an image providing detection boxes and scores for each label.
-
 ### [ResNet](https://github.com/onnx/models/tree/f064171f7dd8e962a8a5b34eac8e1bcf83cebbde/vision/classification/resnet#resnet)
 
 Classifies the major object in the image into 1,000 pre-defined classes.
@@ -52,7 +48,6 @@ From this directory:
 
 | MODEL  | DOWNLOAD URL | Size   |
 | ------ | ------------ | ------ |
-| Faster R-CNN  | https://github.com/onnx/models/blob/f064171f7dd8e962a8a5b34eac8e1bcf83cebbde/vision/object_detection_segmentation/faster-rcnn/model/FasterRCNN-10.onnx | 160.0 MB |
 | ResNet  | https://github.com/onnx/models/raw/f064171f7dd8e962a8a5b34eac8e1bcf83cebbde/vision/classification/resnet/model/resnet50-v2-7.onnx | 97.7 MB |
 | Ultraface  | https://github.com/onnx/models/raw/f064171f7dd8e962a8a5b34eac8e1bcf83cebbde/vision/body_analysis/ultraface/models/version-RFB-320.onnx | 1.21 MB |
 

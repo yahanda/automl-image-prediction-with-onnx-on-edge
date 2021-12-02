@@ -38,7 +38,7 @@ namespace VisionSample
             if (executionProvider == ExecutionProviderOptions.Platform)
                 options.ApplyConfiguration(nameof(ExecutionProviderOptions.Platform));
 
-            using var session = new InferenceSession(Model, options);
+            var session = executionProvider == ExecutionProviderOptions.CPU ? CpuSession : PlatformSession;
             using IDisposableReadOnlyCollection<DisposableNamedOnnxValue> results = session.Run(inputs);
 
             // Postprocess

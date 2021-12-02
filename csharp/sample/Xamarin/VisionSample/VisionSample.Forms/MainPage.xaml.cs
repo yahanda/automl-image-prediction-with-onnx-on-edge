@@ -18,15 +18,11 @@ namespace VisionSample.Forms
 
     public partial class MainPage : ContentPage
     {
-        //IVisionSample _fasterRcnn;
         IVisionSample _resnet;
         IVisionSample _ultraface;
-        IVisionSample _ssdMobileNet;
 
-        //IVisionSample FasterRcnn => _fasterRcnn ??= new FasterRcnnSample();
         IVisionSample ResNet => _resnet ??= new ResNetSample();
         IVisionSample Ultraface => _ultraface ??= new UltrafaceSample();
-        IVisionSample SsdMobileNet => _ssdMobileNet ??= new SsdMobileNetSample();
 
         public MainPage()
         {
@@ -38,13 +34,7 @@ namespace VisionSample.Forms
             // NNAPI: https://developer.android.com/ndk/guides/neuralnetworks
             ExecutionProviderOptions.Items.Add(nameof(VisionSample.ExecutionProviderOptions.CPU));
             ExecutionProviderOptions.Items.Add(Device.RuntimePlatform == Device.Android ? "NNAPI" : "Core ML");
-            ExecutionProviderOptions.SelectedIndex = 1;
-
-            //if (ResourceLoader.EmbeddedResourceExists(FasterRcnnSample.ModelFilename))
-            //    Samples.Items.Add(FasterRcnn.Name);
-
-            if (ResourceLoader.EmbeddedResourceExists(SsdMobileNetSample.ModelFilename))
-                Samples.Items.Add(SsdMobileNet.Name);
+            ExecutionProviderOptions.SelectedIndex = 0;
 
             if (ResourceLoader.EmbeddedResourceExists(ResNetSample.ModelFilename))
                 Samples.Items.Add(ResNet.Name);
@@ -103,7 +93,7 @@ namespace VisionSample.Forms
                 {
                     ResNetSample.Identifier => ResNet,
                     UltrafaceSample.Identifier => Ultraface,
-                    _ => SsdMobileNet
+                    _ => null
                 };
 
                 var result = await sample.ProcessImageAsync(imageData, sessionOptionMode);
@@ -126,9 +116,7 @@ namespace VisionSample.Forms
 
             var imageName = Samples.SelectedItem switch
             {
-                //FasterRcnnSample.Identifier => "demo.jpg",
                 ResNetSample.Identifier => "dog.jpg",
-                SsdMobileNetSample.Identifier => "ssdmobilenet_sample.jpg",
                 _ => null
             };
 
