@@ -811,8 +811,6 @@ if (onnxruntime_USE_NNAPI_BUILTIN)
   file(GLOB_RECURSE onnxruntime_providers_shared_utils_cc_srcs CONFIGURE_DEPENDS
     "${ONNXRUNTIME_ROOT}/core/providers/shared/utils/utils.h"
     "${ONNXRUNTIME_ROOT}/core/providers/shared/utils/utils.cc"
-    "${ONNXRUNTIME_ROOT}/core/providers/shared/node_unit.h"
-    "${ONNXRUNTIME_ROOT}/core/providers/shared/node_unit.cc"
   )
 
   if(CMAKE_SYSTEM_NAME STREQUAL "Android")
