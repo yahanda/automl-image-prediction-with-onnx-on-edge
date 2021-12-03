@@ -5,7 +5,9 @@
 #include <core/common/safeint.h>
 #include <core/framework/tensorprotoutils.h>
 
+#include "core/optimizer/qdq_transformer/selectors_actions/qdq_selectors.h"
 #include "core/providers/common.h"
+#include "core/providers/shared/node_unit.h"
 #include "core/providers/shared/utils/utils.h"
 #include "core/providers/nnapi/nnapi_builtin/nnapi_lib/nnapi_implementation.h"
 #include "helper.h"
@@ -21,6 +23,8 @@ using std::vector;
 
 ModelBuilder::ModelBuilder(const GraphViewer& graph_viewer)
     : nnapi_(NnApiImplementation()), graph_viewer_(graph_viewer) {}
+
+ModelBuilder::~ModelBuilder() = default;
 
 int32_t ModelBuilder::GetNNAPIFeatureLevel() const {
   return nnapi_ ? nnapi_->nnapi_runtime_feature_level : 0;
@@ -48,13 +52,12 @@ void ModelBuilder::AddInitializerToSkip(const std::string& tensor_name) {
   skipped_initializers_.insert(tensor_name);
 }
 
-static std::unordered_map<std::string, vector<const Node*>> GetAllQuantizedOpInputs(const GraphViewer& graph_viewer);
-
 Status ModelBuilder::Prepare() {
   nnapi_model_ = std::unique_ptr<Model>(new Model());
   RETURN_STATUS_ON_ERROR(nnapi_->ANeuralNetworksModel_create(&nnapi_model_->model_));
   ORT_RETURN_IF_ERROR(GetTargetDevices());
-  all_quantized_op_inputs_ = GetAllQuantizedOpInputs(graph_viewer_);
+  PreprocessNodeUnits();
+  GetAllQuantizedOpInputs();
   PreprocessInitializers();
   PreprocessActivations();
   ORT_RETURN_IF_ERROR(RegisterInitializers());
@@ -116,12 +119,22 @@ Status ModelBuilder::GetTargetDevices() {
 }
 
 void ModelBuilder::PreprocessInitializers() {
+  std::unordered_set<const INodeUnit*> processed_node_units;
   const auto& node_indices = graph_viewer_.GetNodesInTopologicalOrder();
   for (size_t i = 0; i < node_indices.size(); i++) {
     const auto* node(graph_viewer_.GetNode(node_indices[i]));
-    if (const auto* op_builder = GetOpBuilder(*node)) {
-      op_builder->AddInitializersToSkip(*this, *node);
+    const auto& node_unit = GetNodeUnit(node);
+    if (Contains(processed_node_units, &node_unit)) {
+      continue;
     }
+    if (const auto* op_builder = GetOpBuilder(node_unit)) {
+      op_builder->AddInitializersToSkip(*this, node_unit);
+    }
+    processed_node_units.insert(&node_unit);
+  }
+
+  for (const auto& initializer : skipped_initializers_) {
+    LOGS_DEFAULT(VERBOSE) << "initializer " << initializer << " is skipped";
   }
 }
 
@@ -147,13 +160,58 @@ void ModelBuilder::PreprocessActivations() {
   }
 }
 
+void ModelBuilder::PreprocessNodeUnits() {
+  // TODO share this code
+  // TODO make this similar to qdq transformer
+  std::unordered_map<std::string, std::unique_ptr<QDQ::BaseSelector>> qdq_selectors;
+  qdq_selectors.emplace("Conv", std::make_unique<QDQ::ConvSelector>());
+
+  const auto& node_indices = graph_viewer_.GetNodesInTopologicalOrder();
+  std::unordered_set<NodeIndex> qdq_node_indices;
+  for (size_t i = 0; i < node_indices.size(); i++) {
+    const auto* node(graph_viewer_.GetNode(node_indices[i]));
+    const auto iter = qdq_selectors.find(node->OpType());
+    if (iter != qdq_selectors.end()) {
+      auto selection = iter->second->GetQDQSelection(graph_viewer_, *node);
+      if (selection.has_value()) {
+        const auto& qdq_group = *selection;
+        qdq_node_indices.insert(qdq_group.dq_nodes.cbegin(), qdq_group.dq_nodes.cend());
+        qdq_node_indices.insert(qdq_group.q_nodes.cbegin(), qdq_group.q_nodes.cend());
+        qdq_node_indices.insert(qdq_group.target_node);
+        auto node_unit = CreateQDQNodeUnit(graph_viewer_, qdq_group);
+        for (const auto* _node : node_unit->GetAllNodes()) {
+          node_unit_map_.insert({_node, node_unit.get()});
+        }
+        node_unit_holder_.push_back(std::move(node_unit));
+      }
+    }
+  }
+
+  for (size_t i = 0; i < node_indices.size(); i++) {
+    const auto node_idx = node_indices[i];
+    // Already part of a qdq group
+    if (Contains(qdq_node_indices, node_idx))
+      continue;
+    const auto* node(graph_viewer_.GetNode(node_idx));
+    auto node_unit = CreateNodeUnit(*node);
+    node_unit_map_.insert({node, node_unit.get()});
+    node_unit_holder_.push_back(std::move(node_unit));
+  }
+}
+
+const INodeUnit& ModelBuilder::GetNodeUnit(const Node* node) const {
+  // Do we want to throw here?
+  return *node_unit_map_.at(node);
+}
+
 // Help to get all quantized operators' input and the node(s) using the input
-static std::unordered_map<std::string, vector<const Node*>> GetAllQuantizedOpInputs(const GraphViewer& graph_viewer) {
-  std::unordered_map<std::string, vector<const Node*>> all_quantized_op_inputs;
-  const auto& node_indices = graph_viewer.GetNodesInTopologicalOrder();
+void ModelBuilder::GetAllQuantizedOpInputs() {
+  const auto& node_indices = graph_viewer_.GetNodesInTopologicalOrder();
   for (const auto& node_idx : node_indices) {
-    const auto* node(graph_viewer.GetNode(node_idx));
-    auto qlinear_op_type = GetQLinearOpType(*node);
+    const auto* node(graph_viewer_.GetNode(node_idx));
+    // TODO check if the node_unit has already been processed
+    const auto& node_unit = GetNodeUnit(node);
+    auto qlinear_op_type = GetQLinearOpType(node_unit);
 
     // Not a qlinear op
     if (qlinear_op_type == QLinearOpType::Unknown)
@@ -161,28 +219,26 @@ static std::unordered_map<std::string, vector<const Node*>> GetAllQuantizedOpInp
 
     // All qlinear ops EXCEPT QuantizeLinear has quantized input
     if (qlinear_op_type != QLinearOpType::QuantizeLinear) {
-      const auto& input_name = node->InputDefs()[0]->Name();
-      if (Contains(all_quantized_op_inputs, input_name))
-        all_quantized_op_inputs.at(input_name).push_back(node);
+      const auto& input_name = node_unit.InputDefs()[0]->Name();
+      if (Contains(all_quantized_op_inputs_, input_name))
+        all_quantized_op_inputs_.at(input_name).push_back(&node_unit);
       else
-        all_quantized_op_inputs.emplace(input_name, vector<const Node*>{node});
+        all_quantized_op_inputs_.emplace(input_name, vector<const INodeUnit*>{&node_unit});
     }
 
     if (IsQLinearBinaryOp(qlinear_op_type)) {
-      const auto& input_name = node->InputDefs()[3]->Name();
-      if (Contains(all_quantized_op_inputs, input_name))
-        all_quantized_op_inputs.at(input_name).push_back(node);
+      const auto& input_name = node_unit.InputDefs()[3]->Name();
+      if (Contains(all_quantized_op_inputs_, input_name))
+        all_quantized_op_inputs_.at(input_name).push_back(&node_unit);
       else
-        all_quantized_op_inputs.emplace(input_name, vector<const Node*>{node});
+        all_quantized_op_inputs_.emplace(input_name, vector<const INodeUnit*>{&node_unit});
     }
   }
-
-  return all_quantized_op_inputs;
 }
 
 static Status GetInputDataType(
     const InitializedTensorSet& initializers,
-    const std::unordered_map<std::string, std::vector<const Node*>>& all_quantized_op_inputs,
+    const std::unordered_map<std::string, std::vector<const INodeUnit*>>& all_quantized_op_inputs,
     const std::string& name, int32_t data_type, const Shape& shape,
     OperandType& operand_type) {
   Type type = Type::TENSOR_FLOAT32;
@@ -192,7 +248,7 @@ static Status GetInputDataType(
     case ONNX_NAMESPACE::TensorProto_DataType_FLOAT:
       type = Type::TENSOR_FLOAT32;
       break;
-    case ONNX_NAMESPACE::TensorProto_DataType_UINT8:
+    case ONNX_NAMESPACE::TensorProto_DataType_UINT8: {
       // For ONNX the quantized input/initializer does not carry scale and zero point info
       // So we will need to search the operator using this input
       // And dig out the scale and zero point as the input initializers to the operator
@@ -205,9 +261,11 @@ static Status GetInputDataType(
       }
 
       // TODO, verify the scale and zero point match if there are multiple op using same input
+      const auto* node_unit(all_quantized_op_inputs.at(name)[0]);
       ORT_RETURN_IF_ERROR(GetQuantizedInputScaleAndZeroPoint(
-          initializers, *all_quantized_op_inputs.at(name)[0], name, scale, zero_point));
+          initializers, *node_unit, name, scale, zero_point));
       break;
+    }
       // case ONNX_NAMESPACE::TensorProto_DataType_INT8:
       // We also do not consider ONNX_NAMESPACE::TensorProto_DataType_INT8 case here, since that can only
       // be input 2 of Qlinear[Conv/MatMul], which has to be an initializer tensor and will be added
@@ -484,11 +542,18 @@ Status ModelBuilder::AddOperandFromPersistMemoryBuffer(
 }
 
 Status ModelBuilder::AddOperations() {
+  std::unordered_set<const INodeUnit*> processed_node_units;
   const auto& node_indices = graph_viewer_.GetNodesInTopologicalOrder();
   for (size_t i = 0; i < node_indices.size(); i++) {
     const auto* node(graph_viewer_.GetNode(node_indices[i]));
-    if (const auto* op_builder = GetOpBuilder(*node)) {
-      ORT_RETURN_IF_ERROR(op_builder->AddToModelBuilder(*this, *node));
+    const auto& node_unit = GetNodeUnit(node);
+    if (Contains(processed_node_units, &node_unit)) {
+      continue;
+    }
+
+    if (const auto* op_builder = GetOpBuilder(node_unit)) {
+      ORT_RETURN_IF_ERROR(op_builder->AddToModelBuilder(*this, node_unit));
+      processed_node_units.insert(&node_unit);
     } else {
       return ORT_MAKE_STATUS(ONNXRUNTIME, INVALID_ARGUMENT,
                              "Node [", node->Name(), "], type [", node->OpType(), "] is not supported");
@@ -637,12 +702,12 @@ int32_t ModelBuilder::FindActivation(const Node& node, const NodeArg& output) {
   return fuse_code;
 }
 
-/* static */ const IOpBuilder* ModelBuilder::GetOpBuilder(const Node& node) {
+/* static */ const IOpBuilder* ModelBuilder::GetOpBuilder(const INodeUnit& node_unit) {
   const auto& op_builders = GetOpBuilders();
-  if (!Contains(op_builders, node.OpType()))
+  if (!Contains(op_builders, node_unit.OpType()))
     return nullptr;
 
-  return op_builders.at(node.OpType());
+  return op_builders.at(node_unit.OpType());
 }
 
 std::string ModelBuilder::GetUniqueName(const std::string& base_name) {

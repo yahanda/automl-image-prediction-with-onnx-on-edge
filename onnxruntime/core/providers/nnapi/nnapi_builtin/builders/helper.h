@@ -26,6 +26,7 @@ namespace onnxruntime {
 using Shape = std::vector<uint32_t>;
 using InitializerMap = std::unordered_map<std::string, const ONNX_NAMESPACE::TensorProto&>;
 
+class INodeUnit;
 class Node;
 class NodeArg;
 class GraphViewer;
@@ -90,10 +91,11 @@ enum class ConvType : uint8_t {
 };
 
 QLinearOpType GetQLinearOpType(const onnxruntime::Node& node);
+QLinearOpType GetQLinearOpType(const onnxruntime::INodeUnit& node);
 
 // Return the type of the conv ops,
 // This function assumes the input is a 2d conv node
-ConvType GetConvType(const onnxruntime::Node& node, const InitializedTensorSet& initializers);
+ConvType GetConvType(const INodeUnit& node_unit, const InitializedTensorSet& initializers);
 
 // This qlinear op is an operator takes 2 inputs and produces 1 output
 // Such as QLinearConv, QLinearMatMul, QLinearAdd, ...
@@ -110,11 +112,26 @@ bool HasValidQuantizationScales(const InitializedTensorSet& initializers, const 
 bool HasValidQuantizationZeroPoints(const InitializedTensorSet& initializers, const Node& node,
                                     const std::vector<size_t>& indices);
 
+// Check if a qlinear unary op has valid inputs, Qlinear[Sigmoid/AveragePool]
+bool HasValidUnaryOpQuantizedInputs(const INodeUnit& node);
+// Check if a qlinear binary op has valid inputs, Qlinear[Conv/MatMul/Add]
+bool HasValidBinaryOpQuantizedInputs(const INodeUnit& node);
+// Check if a qlinear op has valid scales for given indices
+bool HasValidQuantizationScales(const InitializedTensorSet& initializers, const INodeUnit& node,
+                                const std::vector<size_t>& indices, const OpSupportCheckParams& params);
+// Check if a qlinear op has valid zero points for given indices
+bool HasValidQuantizationZeroPoints(const InitializedTensorSet& initializers, const INodeUnit& node,
+                                    const std::vector<size_t>& indices);
+
 common::Status GetQuantizationScale(const InitializedTensorSet& initializers, const Node& node,
+                                    size_t idx, float& scale);
+common::Status GetQuantizationScale(const InitializedTensorSet& initializers, const INodeUnit& node,
                                     size_t idx, float& scale);
 
 common::Status GetQuantizationZeroPoint(const InitializedTensorSet& initializers,
                                         const Node& node, size_t idx, int32_t& zero_point) ORT_MUST_USE_RESULT;
+common::Status GetQuantizationZeroPoint(const InitializedTensorSet& initializers,
+                                        const INodeUnit& node, size_t idx, int32_t& zero_point) ORT_MUST_USE_RESULT;
 
 // Get Shape/Type of a NodeArg
 // TODO, move to shared_utils
@@ -125,11 +142,11 @@ bool GetType(const NodeArg& node_arg, int32_t& type);
 void GetFlattenOutputShape(const Node& node, const Shape& input_shape, int32_t& dim_1, int32_t& dim_2);
 
 // If a node is supported by NNAPI
-bool IsNodeSupported(const Node& node, const GraphViewer& graph_viewer, const OpSupportCheckParams& params);
+bool IsNodeSupported(const INodeUnit& node_unit, const GraphViewer& graph_viewer, const OpSupportCheckParams& params);
 
 // If a node is supported by NNAPI in a partition node group
 // `node_outputs_in_group` is the set of the output names of the nodes added to this group so far
-bool IsNodeSupportedInGroup(const Node& node, const GraphViewer& graph_viewer,
+bool IsNodeSupportedInGroup(const INodeUnit& node_unit, const GraphViewer& graph_viewer,
                             const OpSupportCheckParams& params,
                             const std::unordered_set<std::string>& node_outputs_in_group);
 
