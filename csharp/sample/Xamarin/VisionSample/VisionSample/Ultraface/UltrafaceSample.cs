@@ -16,30 +16,24 @@ namespace VisionSample
         public UltrafaceSample()
             : base(Identifier, ModelFilename) {}
 
-        protected override async Task<ImageProcessingResult> OnProcessImageAsync(byte[] image, ExecutionProviderOptions executionProvider)
+        protected override async Task<ImageProcessingResult> OnProcessImageAsync(byte[] image)
         {
             using var sourceImage = await Task.Run(() => ImageProcessor.GetImageFromBytes(image, 800f)).ConfigureAwait(false);
             using var preprocessedImage = await Task.Run(() => ImageProcessor.PreprocessSourceImage(image)).ConfigureAwait(false);
             var tensor = await Task.Run(() => ImageProcessor.GetTensorForImage(preprocessedImage)).ConfigureAwait(false);
-            var predictions = await Task.Run(() => GetPredictions(tensor, sourceImage.Width, sourceImage.Height, executionProvider)).ConfigureAwait(false);
+            var predictions = await Task.Run(() => GetPredictions(tensor, sourceImage.Width, sourceImage.Height)).ConfigureAwait(false);
             var outputImage = await Task.Run(() => ImageProcessor.ApplyPredictionsToImage(predictions, sourceImage)).ConfigureAwait(false);
 
             return new ImageProcessingResult(outputImage);
         }
 
-        List<UltrafacePrediction> GetPredictions(Tensor<float> input, int sourceImageWidth, int sourceImageHeight, ExecutionProviderOptions executionProvider = ExecutionProviderOptions.CPU)
+        List<UltrafacePrediction> GetPredictions(Tensor<float> input, int sourceImageWidth, int sourceImageHeight)
         {
             // Setup inputs and outputs
             var inputs = new List<NamedOnnxValue> { NamedOnnxValue.CreateFromTensor("input", input) };
 
             // Run inference
-            using var options = new SessionOptions { GraphOptimizationLevel = GraphOptimizationLevel.ORT_ENABLE_ALL };
-
-            if (executionProvider == ExecutionProviderOptions.Platform)
-                options.ApplyConfiguration(nameof(ExecutionProviderOptions.Platform));
-
-            var session = executionProvider == ExecutionProviderOptions.CPU ? CpuSession : PlatformSession;
-            using IDisposableReadOnlyCollection<DisposableNamedOnnxValue> results = session.Run(inputs);
+            using IDisposableReadOnlyCollection<DisposableNamedOnnxValue> results = Session.Run(inputs);
 
             // Postprocess
             var resultsArray = results.ToArray();
@@ -53,7 +47,7 @@ namespace VisionSample
                 return new List<UltrafacePrediction>(); ;
 
             // find the best score
-            float highestScore = scores.Max();
+            float highestScore = scores.Max(); 
             var indexForHighestScore = scores.IndexOf(highestScore);
             var boxOffset = indexForHighestScore * 4;
 

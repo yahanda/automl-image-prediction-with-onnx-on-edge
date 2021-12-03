@@ -18,11 +18,11 @@ namespace VisionSample
         public ResNetSample()
             : base(Identifier, ModelFilename) {}
 
-        protected override async Task<ImageProcessingResult> OnProcessImageAsync(byte[] image, ExecutionProviderOptions executionProvider)
+        protected override async Task<ImageProcessingResult> OnProcessImageAsync(byte[] image)
         {
             using var preprocessedImage = await Task.Run(() => ImageProcessor.PreprocessSourceImage(image)).ConfigureAwait(false);
             var tensor = await Task.Run(() => ImageProcessor.GetTensorForImage(preprocessedImage)).ConfigureAwait(false);
-            var predictions = await Task.Run(() => GetPredictions(tensor, executionProvider)).ConfigureAwait(false);
+            var predictions = await Task.Run(() => GetPredictions(tensor)).ConfigureAwait(false);
             var preprocessedImageData = await Task.Run(() => ImageProcessor.GetBytesForBitmap(preprocessedImage)).ConfigureAwait(false);
 
             var caption = string.Empty;
@@ -43,14 +43,13 @@ namespace VisionSample
             return new ImageProcessingResult(preprocessedImageData, caption);
         }
 
-        List<ResNetPrediction> GetPredictions(Tensor<float> input, ExecutionProviderOptions executionProvider = ExecutionProviderOptions.CPU)
+        List<ResNetPrediction> GetPredictions(Tensor<float> input)
         {
             // Setup inputs and outputs
             var inputs = new List<NamedOnnxValue> { NamedOnnxValue.CreateFromTensor("data", input) };
 
             // Run inference
-            var session = executionProvider == ExecutionProviderOptions.CPU ? CpuSession : PlatformSession;
-            using IDisposableReadOnlyCollection<DisposableNamedOnnxValue> results = session.Run(inputs);
+            using IDisposableReadOnlyCollection<DisposableNamedOnnxValue> results = Session.Run(inputs);
 
             // Postprocess to get softmax vector
             IEnumerable<float> output = results.First().AsEnumerable<float>();

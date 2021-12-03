@@ -35,17 +35,39 @@ namespace VisionSample.Forms
             ExecutionProviderOptions.Items.Add(nameof(VisionSample.ExecutionProviderOptions.CPU));
             ExecutionProviderOptions.Items.Add(Device.RuntimePlatform == Device.Android ? "NNAPI" : "Core ML");
             ExecutionProviderOptions.SelectedIndex = 0;
+            ExecutionProviderOptions.SelectedIndexChanged += ExecutionProviderOptions_SelectedIndexChanged;
 
             if (ResourceLoader.EmbeddedResourceExists(ResNetSample.ModelFilename))
-                Samples.Items.Add(ResNet.Name);
+                Models.Items.Add(ResNet.Name);
 
             if (ResourceLoader.EmbeddedResourceExists(UltrafaceSample.ModelFilename))
-                Samples.Items.Add(Ultraface.Name);
+                Models.Items.Add(Ultraface.Name);
 
-            if (Samples.Items.Any())
-                Samples.SelectedIndex = Samples.Items.IndexOf(Samples.Items.First());
+            if (Models.Items.Any())
+            {
+                Models.SelectedIndex = Models.Items.IndexOf(Models.Items.First());
+                Models.SelectedIndexChanged += Models_SelectedIndexChanged;
+            }
             else
-                Samples.IsEnabled = false;
+                Models.IsEnabled = false;
+        }
+
+        async Task UpdateExecutionProvider() 
+        {
+            var executionProvider = ExecutionProviderOptions.SelectedItem switch
+            {
+                nameof(VisionSample.ExecutionProviderOptions.CPU) => VisionSample.ExecutionProviderOptions.CPU,
+                _ => VisionSample.ExecutionProviderOptions.Platform
+            };
+
+            IVisionSample sample = Models.SelectedItem switch
+            {
+                ResNetSample.Identifier => ResNet,
+                UltrafaceSample.Identifier => Ultraface,
+                _ => null
+            };
+
+            await sample.UpdateExecutionProvider(executionProvider);
         }
 
         async Task AcquireAndAnalyzeImageAsync(ImageAcquisitionMode acquisitionMode = ImageAcquisitionMode.Sample)
@@ -57,7 +79,7 @@ namespace VisionSample.Forms
             {
                 SetBusyState(true);
 
-                if (Samples.Items.Count == 0 || Samples.SelectedItem == null)
+                if (Models.Items.Count == 0 || Models.SelectedItem == null)
                 {
                     SetBusyState(false);
                     await DisplayAlert("No Samples", "Model files could not be found", "OK");
@@ -76,27 +98,21 @@ namespace VisionSample.Forms
                     SetBusyState(false);
 
                     if (acquisitionMode == ImageAcquisitionMode.Sample)
-                        await DisplayAlert("No Sample Image", $"No sample image for {Samples.SelectedItem}", "OK");
+                        await DisplayAlert("No Sample Image", $"No sample image for {Models.SelectedItem}", "OK");
 
                     return;
                 }
 
                 ClearResult();
 
-                var sessionOptionMode = ExecutionProviderOptions.SelectedItem switch
-                {
-                    nameof(VisionSample.ExecutionProviderOptions.CPU) => VisionSample.ExecutionProviderOptions.CPU,
-                    _ => VisionSample.ExecutionProviderOptions.Platform
-                };
-
-                IVisionSample sample = Samples.SelectedItem switch
+                IVisionSample sample = Models.SelectedItem switch
                 {
                     ResNetSample.Identifier => ResNet,
                     UltrafaceSample.Identifier => Ultraface,
                     _ => null
                 };
 
-                var result = await sample.ProcessImageAsync(imageData, sessionOptionMode);
+                var result = await sample.ProcessImageAsync(imageData);
 
                 outputImage = result.Image;
                 caption = result.Caption;
@@ -114,7 +130,7 @@ namespace VisionSample.Forms
         {
             var assembly = GetType().Assembly;
 
-            var imageName = Samples.SelectedItem switch
+            var imageName = Models.SelectedItem switch
             {
                 ResNetSample.Identifier => "dog.jpg",
                 _ => null
@@ -255,5 +271,14 @@ namespace VisionSample.Forms
             => AcquireAndAnalyzeImageAsync(GetAcquisitionModeFromText((sender as Button).Text)).ContinueWith((task)
                 => { if (task.IsFaulted) MainThread.BeginInvokeOnMainThread(()
                   => DisplayAlert("Error", task.Exception.Message, "OK")); });
+
+        private void ExecutionProviderOptions_SelectedIndexChanged(object sender, EventArgs e)
+            => UpdateExecutionProvider().ContinueWith((task)
+                => { if (task.IsFaulted) MainThread.BeginInvokeOnMainThread(() 
+                    => DisplayAlert("Error", task.Exception.Message, "OK"));});
+
+        private void Models_SelectedIndexChanged(object sender, EventArgs e)
+            // make sure EP is in sync
+            => ExecutionProviderOptions_SelectedIndexChanged(null, null);
     }
 }

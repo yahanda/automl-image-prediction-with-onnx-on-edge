@@ -7,6 +7,7 @@ namespace VisionSample
         string Name { get; }
         string ModelName { get; }
         Task InitializeAsync();
-        Task<ImageProcessingResult> ProcessImageAsync(byte[] image, ExecutionProviderOptions executionProvider);
+        Task UpdateExecutionProvider(ExecutionProviderOptions executionProvider);
+        Task<ImageProcessingResult> ProcessImageAsync(byte[] image);
     }
 }

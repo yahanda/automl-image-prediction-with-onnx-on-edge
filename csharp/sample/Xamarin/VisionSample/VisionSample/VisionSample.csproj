@@ -16,13 +16,13 @@
     <EmbeddedResource Include="..\..\Models\resnet50-v2-7.onnx" Condition="Exists('..\..\Models\resnet50-v2-7.onnx')">
       <Link>ResNet50v2\resnet50.onnx</Link>
     </EmbeddedResource>
-    <EmbeddedResource Include="..\..\Models\version-RFB-320.onnx" Condition="Exists('..\..\Models\version-RFB-320.onnx')">
+    <EmbeddedResource Include="..\..\Models\Ultraface.version-RFB-320.onnx" Condition="Exists('..\..\Models\Ultraface.version-RFB-320.onnx')">
       <Link>Ultraface\ultraface.onnx</Link>
     </EmbeddedResource>
   </ItemGroup>
   <ItemGroup>
     <!-- TODO: Update to use official package once Xamarin support is added to it -->
-    <PackageReference Include="Microsoft.ML.OnnxRuntime.Managed" Version="1.10.0-dev-20211007-0712-73c0796ac" />
+    <PackageReference Include="Microsoft.ML.OnnxRuntime.Managed" Version="1.10.0-dev-20211202-0505-6a1d8bf4a" />
     <PackageReference Include="SkiaSharp" Version="2.80.3" />
   </ItemGroup>
 </Project>

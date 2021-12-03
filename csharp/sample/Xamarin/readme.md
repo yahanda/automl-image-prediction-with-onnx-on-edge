@@ -11,29 +11,24 @@ Classifies the major object in the image into 1,000 pre-defined classes.
 
 ### [Ultraface](https://github.com/onnx/models/tree/f064171f7dd8e962a8a5b34eac8e1bcf83cebbde/vision/body_analysis/ultraface#ultra-lightweight-face-detection-model)
 
-Lightweight face detection model designed for edge computing devices providing detection boxes and scores for a given image.
+Lightweight face detection model designed for edge computing devices providing detection boxes and scores for a given image. 
+This model is included in the repository, but has been updated to remove unused initializers, and to make the initializers constant to enable more runtime optimizations to occur.
 
 The sample also demonstrates how to switch between the default **CPU EP ([Execution Provider](https://onnxruntime.ai/docs/execution-providers))** and platform-specific options. In this case, [NNAPI](https://onnxruntime.ai/docs/execution-providers/NNAPI-ExecutionProvider.html) for Android and [Core ML](https://onnxruntime.ai/docs/execution-providers/CoreML-ExecutionProvider.html) for iOS.
 
 ## Getting Started
 
-> [!IMPORTANT] Until ORT is officially released with Xamarin support in the nuget package you need to take the following additional steps:
->   - Get the managed and native nuget packages from the internal Zip-Nuget-Java packaging pipeline for a build of master
->   - Put those packages in a local directory
->   - Update the nuget.config to point to that directory
+> [!IMPORTANT] 
+> The nuget.config has package sources for the official and integration NuGet repositories. 
+> Xamarin support is currently only available in the ONNX Runtime nuget packages in the integration repository. It will be added to the official package in the v1.10 release.
 >
 > There are some [known issues](#known-issues) that could impact aspects of the sample on specific devices or environments. See [known issues section](#known-issues) for workarounds.
 
-The sample should build and run as-is, but you must include the model(s) you wish to explore in the appropraite directory for them to appear as options. 
+The [VisionSample](VisionSample/VisionSample.sln) should build and run as-is, and looks for model files in a folder in this directory called **Models**. 
+The Ultraface model should already exist in that directory and to able to be used.
 
-The [VisionSample](VisionSample/VisionSample.sln) looks for model files in a folder in this directory called **Models**. You must create this folder if you have not done so already. 
-
-From this directory:
-```
-> mkdir Models
-```
-
-With **Models** set as the current directory, you can then use [wget](https://www.gnu.org/software/wget) to download the desired model files to this folder.
+Additionally the ResNet model can be added if desired.
+With **Models** set as the current directory, you can use [wget](https://www.gnu.org/software/wget) to download it.
 
 From this directory:
 ```
@@ -41,15 +36,12 @@ From this directory:
 > wget <model_url>
 ```
 
-> [!NOTE] 
-> You may need to reload [VisionSample.csproj](VisionSample/VisionSample.csproj) before newly added model files will appear in [Visual Studio Solution Explorer](https://docs.microsoft.com/visualstudio/ide/use-solution-explorer?view=vs-2022).
-
-### Model Downloads
-
 | MODEL  | DOWNLOAD URL | Size   |
 | ------ | ------------ | ------ |
 | ResNet  | https://github.com/onnx/models/raw/f064171f7dd8e962a8a5b34eac8e1bcf83cebbde/vision/classification/resnet/model/resnet50-v2-7.onnx | 97.7 MB |
-| Ultraface  | https://github.com/onnx/models/raw/f064171f7dd8e962a8a5b34eac8e1bcf83cebbde/vision/body_analysis/ultraface/models/version-RFB-320.onnx | 1.21 MB |
+
+> [!NOTE] 
+> You may need to reload [VisionSample.csproj](VisionSample/VisionSample.csproj) before newly added model files will appear in [Visual Studio Solution Explorer](https://docs.microsoft.com/visualstudio/ide/use-solution-explorer?view=vs-2022).
 
 ## Known Issues
 
