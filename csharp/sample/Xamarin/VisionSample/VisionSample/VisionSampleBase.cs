@@ -9,7 +9,7 @@ namespace VisionSample
         byte[] _model;
         string _name;
         string _modelName;
-        Task _initializeTask;
+        Task _prevAsyncTask;
         TImageProcessor _imageProcessor;
         InferenceSession _session;
         ExecutionProviderOptions _curExecutionProvider;
@@ -27,45 +27,56 @@ namespace VisionSample
         public InferenceSession Session => _session;
         public TImageProcessor ImageProcessor => _imageProcessor ??= new TImageProcessor();
 
-	    public Task UpdateExecutionProvider(ExecutionProviderOptions executionProvider)
-	    {
+        public async Task UpdateExecutionProviderAsync(ExecutionProviderOptions executionProvider)
+        {
+            // make sure any existing async task completes before we change the session
+            await AwaitLastTaskAsync();
+
             // creating the inference session can be expensive and should be done as a one-off.
             // additionally each session uses memory for the model and the infrastructure required to execute it,
             // and has its own threadpools.
-	        return Task.Run(() =>
-	                        {
+            _prevAsyncTask = Task.Run(() =>
+                            {
                                 if (executionProvider == _curExecutionProvider)
                                     return;
 
-	                            if (executionProvider == ExecutionProviderOptions.CPU)
-	                            {
+                                if (executionProvider == ExecutionProviderOptions.CPU)
+                                {
                                     // create session that uses the CPU execution provider
-	                                _session = new InferenceSession(_model);
-	                            }
-	                            else
-	                            {
+                                    _session = new InferenceSession(_model);
+                                }
+                                else
+                                {
                                     // create session that uses the NNAPI/CoreML. the CPU execution provider is also
                                     // enabled by default to handle any parts of the model taht NNAPI/CoreML cannot.
-	                                var options = SessionOptionsContainer.Create(nameof(ExecutionProviderOptions.Platform));
-	                                _session = new InferenceSession(_model, options);
-	                            }
-	                        });
-	    }
+                                    var options = SessionOptionsContainer.Create(nameof(ExecutionProviderOptions.Platform));
+                                    _session = new InferenceSession(_model, options);
+                                }
+                            });
+        }
 
         protected virtual Task<ImageProcessingResult> OnProcessImageAsync(byte[] image) => throw new NotImplementedException();
 
         public Task InitializeAsync()
         {
-            if (_initializeTask == null || _initializeTask.IsFaulted)
-                _initializeTask = Task.Run(() => Initialize());
-
-            return _initializeTask;
+            _prevAsyncTask = Task.Run(() => Initialize());
+            return _prevAsyncTask;
         }
 
         public async Task<ImageProcessingResult> ProcessImageAsync(byte[] image)
         {
-            await InitializeAsync().ConfigureAwait(false);
+            await AwaitLastTaskAsync().ConfigureAwait(false);
+
             return await OnProcessImageAsync(image);
+        }
+
+        async Task AwaitLastTaskAsync()
+        {
+            if (_prevAsyncTask != null)
+            {
+                await _prevAsyncTask.ConfigureAwait(false);
+                _prevAsyncTask = null;
+            }
         }
 
         void Initialize()

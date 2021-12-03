@@ -35,7 +35,6 @@ namespace VisionSample.Forms
             ExecutionProviderOptions.Items.Add(nameof(VisionSample.ExecutionProviderOptions.CPU));
             ExecutionProviderOptions.Items.Add(Device.RuntimePlatform == Device.Android ? "NNAPI" : "Core ML");
             ExecutionProviderOptions.SelectedIndex = 0;
-            ExecutionProviderOptions.SelectedIndexChanged += ExecutionProviderOptions_SelectedIndexChanged;
 
             if (ResourceLoader.EmbeddedResourceExists(ResNetSample.ModelFilename))
                 Models.Items.Add(ResNet.Name);
@@ -46,13 +45,26 @@ namespace VisionSample.Forms
             if (Models.Items.Any())
             {
                 Models.SelectedIndex = Models.Items.IndexOf(Models.Items.First());
-                Models.SelectedIndexChanged += Models_SelectedIndexChanged;
             }
             else
                 Models.IsEnabled = false;
         }
 
-        async Task UpdateExecutionProvider() 
+        protected override void OnAppearing()
+        {
+            base.OnAppearing();
+            ExecutionProviderOptions.SelectedIndexChanged += ExecutionProviderOptions_SelectedIndexChanged;
+            Models.SelectedIndexChanged += Models_SelectedIndexChanged;
+        }
+
+        protected override void OnDisappearing()
+        {
+            base.OnDisappearing();
+            ExecutionProviderOptions.SelectedIndexChanged -= ExecutionProviderOptions_SelectedIndexChanged;
+            Models.SelectedIndexChanged -= Models_SelectedIndexChanged;
+        }
+
+        async Task UpdateExecutionProviderAsync() 
         {
             var executionProvider = ExecutionProviderOptions.SelectedItem switch
             {
@@ -67,7 +79,7 @@ namespace VisionSample.Forms
                 _ => null
             };
 
-            await sample.UpdateExecutionProvider(executionProvider);
+            await sample.UpdateExecutionProviderAsync(executionProvider);
         }
 
         async Task AcquireAndAnalyzeImageAsync(ImageAcquisitionMode acquisitionMode = ImageAcquisitionMode.Sample)
@@ -273,7 +285,7 @@ namespace VisionSample.Forms
                   => DisplayAlert("Error", task.Exception.Message, "OK")); });
 
         private void ExecutionProviderOptions_SelectedIndexChanged(object sender, EventArgs e)
-            => UpdateExecutionProvider().ContinueWith((task)
+            => UpdateExecutionProviderAsync().ContinueWith((task)
                 => { if (task.IsFaulted) MainThread.BeginInvokeOnMainThread(() 
                     => DisplayAlert("Error", task.Exception.Message, "OK"));});
 
