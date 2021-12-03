@@ -26,8 +26,8 @@ These tutorials demonstrate basic inferencing with ONNX Runtime with each langua
 * [C/C++ examples](https://github.com/microsoft/onnxruntime-inference-examples/tree/main/c_cxx)
 
 ## C#
-* [Object detection (Faster RCNN)]()
-* [Image recognition (ResNet50 v2)](../tutorials/resnet50_csharp.html)
+* [Object detection (Faster RCNN)](fasterrcnn_charp.html)
+* [Image recognition (ResNet50 v2)](resnet50_csharp.html)
 
 ## Java
 * [Number recognition (MNIST)](../tutorials/mnist_java.html)
