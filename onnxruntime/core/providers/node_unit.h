@@ -69,16 +69,15 @@ class NodeUnit {
 
   ~NodeUnit() = default;
 
-  struct ZeroPointScale {
-    float scale;
-    uint8_t unsigned_zp;  // doesn't change data structure size to have both unsigned and signed fields so do that instead of having one and casting in the code
-    int8_t signed_zp;
-    bool is_unsigned;
-  };
-
   struct IODef {
+    struct QDQMetadata {
+      const NodeArg* scale{nullptr};
+      const NodeArg* zero_point{nullptr};
+      int q_axis{1};  // QuantizeLinear 'axis' attribute
+    };
+
     const NodeArg* nodearg;
-    std::optional<ZeroPointScale> zp_scale;
+    std::optional<QDQMetadata> qdq_metadata;
   };
 
   Type UnitType() const noexcept { return type_; }
@@ -86,8 +85,8 @@ class NodeUnit {
   const std::vector<IODef>& InputDefs() const noexcept { return input_defs_; }
   const std::vector<IODef>& OutputDefs() const noexcept { return output_defs_; }
 
-  const Node::EdgeSet& InputEdges() const noexcept { return input_edges_; }
-  const Node::EdgeSet& InputEdges() const noexcept { return output_edges_; }
+  const std::vector<graph_utils::GraphEdge>& InputEdges() const noexcept { return input_edges_; }
+  const std::vector<graph_utils::GraphEdge>& OutputEdges() const noexcept { return output_edges_; }
 
   const std::string& Domain() const noexcept { return node_.Domain(); }
   const std::string& OpType() const noexcept { return node_.OpType(); }
@@ -112,7 +111,7 @@ class NodeUnit {
 
   std::vector<IODef> input_defs_;
   std::vector<IODef> output_defs_;
-  std::vector<graph_utils::GraphEdge> input_edges_;  // TODO: maybe use a pointer and optional container to avoid copy if this is a plain node
+  std::vector<graph_utils::GraphEdge> input_edges_;
   std::vector<graph_utils::GraphEdge> output_edges_;
 
   const Node& node_;                // single node or target of QDQ

@@ -15,7 +15,7 @@ namespace QDQ {
 
 // Struct to represent a DQ->Op->Q node group
 struct NodeGroup {
-  std::vector<NodeIndex> dq_nodes;
+  std::vector<NodeIndex> ~;
   std::vector<NodeIndex> q_nodes;
   NodeIndex target_node;
 };

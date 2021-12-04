@@ -343,8 +343,8 @@ bool CanRemoveNode(const Graph& graph, const Node& node, const logging::Logger& 
 }
 
 bool RemoveNode(Graph& graph, Node& node) {
-  //TODO: enable the check back
-  //assert(CanRemoveNode(graph, node, nullptr));
+  // TODO: enable the check back
+  // assert(CanRemoveNode(graph, node, nullptr));
 
   // Note: Node does not produce any graph outputs, and only a single output is used.
 
@@ -621,10 +621,18 @@ void FinalizeNodeFusion(Graph& graph, const std::vector<std::reference_wrapper<N
   }
 }
 
-const Node::EdgeEnd*
-GetInputEdge(const Node& node, int arg_index) {
+const Node::EdgeEnd* GetInputEdge(const Node& node, int arg_index) {
   for (auto it = node.InputEdgesBegin(), end = node.InputEdgesEnd(); it != end; ++it) {
     if (arg_index == it->GetDstArgIndex()) {
+      return &(*it);
+    }
+  }
+  return nullptr;
+}
+
+const Node::EdgeEnd* GetOutputEdge(const Node& node, int arg_index) {
+  for (auto it = node.OutputEdgesBegin(), end = node.OutputEdgesEnd(); it != end; ++it) {
+    if (arg_index == it->GetSrcArgIndex()) {
       return &(*it);
     }
   }
