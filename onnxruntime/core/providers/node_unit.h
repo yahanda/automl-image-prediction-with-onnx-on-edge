@@ -73,10 +73,10 @@ class NodeUnit {
     struct QDQMetadata {
       const NodeArg* scale{nullptr};
       const NodeArg* zero_point{nullptr};
-      int q_axis{1};  // QuantizeLinear 'axis' attribute
+      // int q_axis{1};  // QuantizeLinear 'axis' attribute. Ignore for DQ
     };
 
-    const NodeArg* nodearg;
+    const NodeArg* nodearg{nullptr};
     std::optional<QDQMetadata> qdq_metadata;
   };
 
@@ -85,8 +85,8 @@ class NodeUnit {
   const std::vector<IODef>& InputDefs() const noexcept { return input_defs_; }
   const std::vector<IODef>& OutputDefs() const noexcept { return output_defs_; }
 
-  const std::vector<graph_utils::GraphEdge>& InputEdges() const noexcept { return input_edges_; }
-  const std::vector<graph_utils::GraphEdge>& OutputEdges() const noexcept { return output_edges_; }
+  // const std::vector<graph_utils::GraphEdge>& InputEdges() const noexcept { return input_edges_; }
+  // const std::vector<graph_utils::GraphEdge>& OutputEdges() const noexcept { return output_edges_; }
 
   const std::string& Domain() const noexcept { return node_.Domain(); }
   const std::string& OpType() const noexcept { return node_.OpType(); }
@@ -111,14 +111,11 @@ class NodeUnit {
 
   std::vector<IODef> input_defs_;
   std::vector<IODef> output_defs_;
-  std::vector<graph_utils::GraphEdge> input_edges_;
-  std::vector<graph_utils::GraphEdge> output_edges_;
+  // std::vector<graph_utils::GraphEdge> input_edges_;
+  // std::vector<graph_utils::GraphEdge> output_edges_;
 
   const Node& node_;                // single node or target of QDQ
-  std::vector<const Node*> nodes_;  // single node or all nodes in QDQ group
+  std::vector<const Node*> nodes_;  // single node or all nodes in QDQ group - TODO: Do we need Node* or is NodeIndex fine? Latter is simpler to setup.
 };
-
-// const std::unique_ptr<INodeUnitOrig> CreateNodeUnitOrig(const Node& node);
-// const std::unique_ptr<INodeUnitOrig> CreateQDQNodeUnitOrig(const GraphViewer& graph_viewer, const QDQ::NodeGroup& qdq_group);
 
 }  // namespace onnxruntime
