@@ -2,11 +2,14 @@
 // Licensed under the MIT License.
 
 #include "node_unit.h"
+
+#include "core/graph/graph_viewer.h"
 #include "core/optimizer/qdq_transformer/selectors_actions/qdq_selectors.h"
 #include "core/providers/shared/utils/utils.h"
 
 namespace onnxruntime {
 namespace {
+
 std::vector<NodeUnit::IODef> DefsFromNode(const ConstPointerContainer<std::vector<NodeArg*>>& node_defs) {
   std::vector<NodeUnit::IODef> defs;
   defs.reserve(node_defs.size());
@@ -14,6 +17,8 @@ std::vector<NodeUnit::IODef> DefsFromNode(const ConstPointerContainer<std::vecto
   for (const auto entry : node_defs) {
     defs.push_back(NodeUnit::IODef{entry, std::nullopt});
   }
+
+  return defs;
 }
 
 std::vector<NodeUnit::IODef> DefsFromQDQGroup(const GraphViewer& graph_viewer, const QDQ::NodeGroup& qdq_group,

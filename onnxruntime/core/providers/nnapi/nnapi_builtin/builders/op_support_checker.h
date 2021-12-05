@@ -26,7 +26,8 @@ class IOpSupportChecker {
   virtual ~IOpSupportChecker() = default;
 
   // Check if an operator is supported
-  virtual bool IsOpSupported(const InitializedTensorSet& initializers, const INodeUnit& node, const OpSupportCheckParams& params) const = 0;
+  virtual bool IsOpSupported(const InitializedTensorSet& initializers, const NodeUnit& node,
+                             const OpSupportCheckParams& params) const = 0;
 };
 
 // Get the lookup table with IOpSupportChecker delegates for different onnx operators

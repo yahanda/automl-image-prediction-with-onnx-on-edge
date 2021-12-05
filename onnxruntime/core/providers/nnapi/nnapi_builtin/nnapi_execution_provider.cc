@@ -10,7 +10,7 @@
 #include "core/optimizer/qdq_transformer/selectors_actions/qdq_selectors.h"
 #include "core/platform/env.h"
 #include "core/providers/common.h"
-#include "core/providers/shared/node_unit.h"
+#include "core/providers/node_unit.h"
 #include "core/providers/nnapi/nnapi_builtin/builders/helper.h"
 #include "core/providers/nnapi/nnapi_builtin/builders/op_support_checker.h"
 #include "core/providers/nnapi/nnapi_builtin/nnapi_lib/nnapi_implementation.h"
@@ -121,77 +121,85 @@ NnapiExecutionProvider::GetCapability(const onnxruntime::GraphViewer& graph_view
   const auto excluded_nodes = utils::CreateExcludedNodeSet(graph_viewer, partitioning_stop_ops_);
   const bool check_excluded_nodes = !excluded_nodes.empty();
 
+  /*
+  Theoretical usage.
+
+  1: Find all QDQ node groups with basic shared selector. This just finds a collection of nodes that are correct
+     for conversion to a quantized op assuming we had an implmentation with no limitations (e.g. handles u8 and s8 for input).
+
+  2. For all nodes in these node groups, add NodeIndex to an unordered_set<NodeIndex> for QDQ nodes
+
+  3. For all these QDQ node groups, create a NodeUnit and check if supported.
+     If supported add the NodeIndex to an unordered_set<NodeIndex> for supported QDQ nodes.
+
+  4. Call partitioning utils with a check supported lambda
+
+  */
+
+  std::unordered_set<NodeIndex> all_qdq_nodes;
+  std::unordered_set<NodeIndex> supported_qdq_nodes;
+  auto add_qdq_node_indexes = [](const QDQ::NodeGroup& qdq_group, std::unordered_set<NodeIndex>& set) {
+    auto insert = [&](const NodeIndex idx) { set.insert(idx); };
+
+    std::for_each(qdq_group.dq_nodes.cbegin(), qdq_group.dq_nodes.cend(), insert);
+    insert(qdq_group.target_node);
+    std::for_each(qdq_group.q_nodes.cbegin(), qdq_group.q_nodes.cend(), insert);
+  };
+
+  // 1.
+  auto get_qdq_node_groups = [](const GraphViewer&) {
+    std::vector<QDQ::NodeGroup> qdq_groups;
+    // iterate graph to find all QDQ groups
+    return qdq_groups;
+  };
+
+  // 2.
+  std::vector<QDQ::NodeGroup> qdq_groups(get_qdq_node_groups(graph_viewer));
+  for (const auto& group : qdq_groups) {
+    add_qdq_node_indexes(group, all_qdq_nodes);
+  }
+
+  // 3. (impl could merge with 2 but for the sake of simplifying the example code it's separate)
+  for (const auto& group : qdq_groups) {
+    NodeUnit node_unit(graph_viewer, group);
+    // assertion: for a QDQ node group we know the necessary info is contained within the group,
+    // so node_outputs_in_group is not needed in the 'is supported' check and we can do this upfront.
+    // TODO: in theory could the output from a QDQ group be used as input to a non-QDQ node that
+    //       IsInternalQuantizedNode returns true for? that seems like an invalid/badly converted
+    //       QDQ format model that we shouldn't attempt to handle perfectly.
+    if (nnapi::IsNodeSupported(node_unit, graph_viewer, params)) {
+      add_qdq_node_indexes(group, supported_qdq_nodes);
+    }
+  }
+
   std::unordered_set<std::string> node_outputs_in_current_group{};
 
-  std::vector<std::unique_ptr<INodeUnit>> node_unit_holder;
-  std::unordered_map<const Node*, INodeUnit*> node_unit_map;
-
-  // TODO share this code
-  // TODO make this similar to qdq transformer
-  std::unordered_map<std::string, std::unique_ptr<QDQ::BaseSelector>> qdq_selectors;
-  qdq_selectors.emplace("Conv", std::make_unique<QDQ::ConvSelector>());
-
-  const auto& node_indices = graph_viewer.GetNodesInTopologicalOrder();
-  std::unordered_set<NodeIndex> qdq_node_indices;
-  for (size_t i = 0; i < node_indices.size(); i++) {
-    const auto* node(graph_viewer.GetNode(node_indices[i]));
-    const auto iter = qdq_selectors.find(node->OpType());
-    if (iter != qdq_selectors.end()) {
-      auto selection = iter->second->GetQDQSelection(graph_viewer, *node);
-      if (selection.has_value()) {
-        const auto& qdq_group = *selection;
-        qdq_node_indices.insert(qdq_group.dq_nodes.cbegin(), qdq_group.dq_nodes.cend());
-        qdq_node_indices.insert(qdq_group.q_nodes.cbegin(), qdq_group.q_nodes.cend());
-        qdq_node_indices.insert(qdq_group.target_node);
-        auto node_unit = CreateQDQNodeUnit(graph_viewer, qdq_group);
-        for (const auto* _node : node_unit->GetAllNodes()) {
-          node_unit_map.insert({_node, node_unit.get()});
-        }
-        node_unit_holder.push_back(std::move(node_unit));
-      }
-    }
-  }
-
-  for (size_t i = 0; i < node_indices.size(); i++) {
-    const auto node_idx = node_indices[i];
-    // Already part of a qdq group
-    if (Contains(qdq_node_indices, node_idx))
-      continue;
-    const auto* node(graph_viewer.GetNode(node_idx));
-    auto node_unit = CreateNodeUnit(*node);
-    node_unit_map.insert({node, node_unit.get()});
-    node_unit_holder.push_back(std::move(node_unit));
-  }
-
-  std::unordered_map<const INodeUnit*, bool> node_unit_supported_map;
-
   const auto is_node_supported = [&](const Node& node) -> bool {
-    const auto* node_unit = node_unit_map.at(&node);
-    // Check if this node_unit is already processed to avoid re-check
-    const auto iter = node_unit_supported_map.find(node_unit);
-    if (iter != node_unit_supported_map.end()) {
-      return iter->second;
+    auto node_idx = node.Index();
+    if (supported_qdq_nodes.count(node_idx)) {
+      return true;
     }
 
-    // We only check the target node of the node unit
-    const bool excluded = check_excluded_nodes && Contains(excluded_nodes, &node_unit->GetNode());
+    if (all_qdq_nodes.count(node_idx)) {
+      return false;
+    }
+
+    // we will only see standalone nodes now
+    const bool excluded = check_excluded_nodes && Contains(excluded_nodes, &node);
     const bool supported = !excluded &&
-                           nnapi::IsNodeSupportedInGroup(*node_unit, graph_viewer, params,
+                           nnapi::IsNodeSupportedInGroup(NodeUnit(node), graph_viewer, params,
                                                          node_outputs_in_current_group);
+
     LOGS_DEFAULT(VERBOSE) << "Operator type: [" << node.OpType()
                           << "] index: [" << node.Index()
                           << "] name: [" << node.Name()
                           << "] supported: [" << supported
                           << "]";
 
-    node_unit_supported_map.insert({node_unit, supported});
-
-    if (supported) {
-      // We want to save all the output names of nodes in the current group for easy query
-      // See nnapi::IsNodeSupportedInGroup()
-      for (const auto* output : node_unit->OutputDefs()) {
-        node_outputs_in_current_group.insert(output->Name());
-      }
+    // We want to save all the output names of nodes in the current group for easy query
+    // See nnapi::IsNodeSupportedInGroup()
+    for (const auto* output : node.OutputDefs()) {
+      node_outputs_in_current_group.insert(output->Name());
     }
 
     return supported;
@@ -209,8 +217,7 @@ NnapiExecutionProvider::GetCapability(const onnxruntime::GraphViewer& graph_view
     return MakeString(NNAPI, "_", model_hash, "_", metadef_id);
   };
 
-  result = utils::CreateSupportedPartitions(graph_viewer, is_node_supported, {}, on_group_closed,
-                                            gen_metadef_name, NNAPI);
+  result = utils::CreateSupportedPartitions(graph_viewer, is_node_supported, on_group_closed, gen_metadef_name, NNAPI);
 
   const auto num_of_partitions = result.size();
   const auto num_of_supported_nodes = std::transform_reduce(

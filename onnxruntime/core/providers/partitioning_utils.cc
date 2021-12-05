@@ -12,7 +12,6 @@
 #include "core/framework/execution_provider.h"
 #include "core/graph/graph_viewer.h"
 #include "core/providers/common.h"
-#include "core/providers/shared/node_unit.h"
 
 namespace onnxruntime {
 namespace utils {
@@ -87,10 +86,8 @@ the next group.
 std::vector<std::vector<const Node*>> CreateSupportedPartitionNodeGroups(
     const GraphViewer& graph_viewer,
     const IsNodeSupportedFn& is_node_supported_fn,
-    const GetNodeUnitFn& get_node_unit_fn,
     const OnGroupClosedFn& on_group_closed_fn,
     bool debug_output) {
-  (void)get_node_unit_fn;
 #ifdef NDEBUG
   ORT_UNUSED_PARAMETER(debug_output);
 #endif
@@ -309,15 +306,12 @@ std::unique_ptr<ComputeCapability> MakeComputeCapability(const GraphViewer& grap
 std::vector<std::unique_ptr<ComputeCapability>>
 CreateSupportedPartitions(const GraphViewer& graph_viewer,
                           const IsNodeSupportedFn& is_node_supported_fn,
-                          const GetNodeUnitFn& get_node_unit_fn,
                           const OnGroupClosedFn& on_partition_closed_fn,
                           const GenerateMetadefNameFn& generate_metadef_name_fn,
                           const std::string& execution_provider_name,
                           bool debug_output) {
-  (void)get_node_unit_fn;
   const auto groups = CreateSupportedPartitionNodeGroups(graph_viewer,
                                                          is_node_supported_fn,
-                                                         get_node_unit_fn,
                                                          on_partition_closed_fn,
                                                          debug_output);
 
@@ -351,8 +345,7 @@ CreateSupportedPartitions(const GraphViewer& graph_viewer,
         const bool is_excluded = check_excluded_nodes && Contains(excluded_nodes, &node);
         return !is_excluded && Contains(supported_nodes, &node);
       },
-      {}, /* get_node_unit_fn */
-      {}, /* on_partition_closed_fn */
+      {},
       generate_metadef_name_fn,
       execution_provider_name,
       debug_output);
