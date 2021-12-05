@@ -184,7 +184,10 @@ NnapiExecutionProvider::GetCapability(const onnxruntime::GraphViewer& graph_view
       return false;
     }
 
-    // we will only see standalone nodes now
+    // we will only see standalone nodes now.
+    //
+    // TODO: not sure if it's better for all checkers to use NodeUnit, or whether we could/should split into ones that
+    //      need to support NodeUnit and ones that will only ever be used with a single Node.
     const bool excluded = check_excluded_nodes && Contains(excluded_nodes, &node);
     const bool supported = !excluded &&
                            nnapi::IsNodeSupportedInGroup(NodeUnit(node), graph_viewer, params,
