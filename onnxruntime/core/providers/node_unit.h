@@ -34,7 +34,7 @@ class NodeUnit {
       const NodeArg* zero_point{nullptr};
     };
 
-    const NodeArg* nodearg{nullptr};
+    const NodeArg* nodearg{nullptr};  // never nullptr. we use pointer to make usage simpler
     std::optional<QDQMetadata> qdq_metadata;
   };
 
@@ -54,7 +54,7 @@ class NodeUnit {
   ProviderType GetExecutionProviderType() const noexcept { return node_.GetExecutionProviderType(); }
 
   // single node if Type is Node, or all nodes in QDQ group if Type is QDQ
-  // TODO : Do we need Node* or is NodeIndex fine ? Latter is simpler to setup with QDQ as the QDQ group is node indexes
+  // TODO : Do we need Node* or is NodeIndex fine? Latter is simpler to setup with QDQ as the QDQ group is node indexes
   const std::vector<const Node*> GetAllNodes() const noexcept { return nodes_; }
 
   const Path& ModelPath() const noexcept { return node_.ModelPath(); }

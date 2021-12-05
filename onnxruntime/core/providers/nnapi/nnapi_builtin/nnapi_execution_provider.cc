@@ -124,16 +124,20 @@ NnapiExecutionProvider::GetCapability(const onnxruntime::GraphViewer& graph_view
   /*
   Theoretical usage.
 
-  1: Find all QDQ node groups with basic shared selector. This just finds a collection of nodes that are correct
-     for conversion to a quantized op assuming we had an implmentation with no limitations (e.g. handles u8 and s8 for input).
+  1: Find all QDQ node groups with basic shared selector.
+     This finds a collection of nodes that are valid for conversion to a quantized op.
+       - assume there is an implmentation of the quantized op with no additional constraints
+         e.g. supports both u8 and s8 for an input vs. some of our kernels which only support u8
 
-  2. For all nodes in these node groups, add NodeIndex to an unordered_set<NodeIndex> for QDQ nodes
+  2. For all nodes in these node groups, add NodeIndex to an unordered_set<NodeIndex> for all QDQ nodes
 
   3. For all these QDQ node groups, create a NodeUnit and check if supported.
      If supported add the NodeIndex to an unordered_set<NodeIndex> for supported QDQ nodes.
 
-  4. Call partitioning utils with a check supported lambda
-
+  4. Call partitioning utils with a check supported lambda that
+     a) returns true if node in supported QDQ nodes
+     b) returns false if node in all QDQ nodes (i.e. is QDQ but unsupported)
+     c) checks if node is supported (we know it's not in a QDQ group so existing logic to check a single node is fine)
   */
 
   std::unordered_set<NodeIndex> all_qdq_nodes;
@@ -159,7 +163,7 @@ NnapiExecutionProvider::GetCapability(const onnxruntime::GraphViewer& graph_view
     add_qdq_node_indexes(group, all_qdq_nodes);
   }
 
-  // 3. (impl could merge with 2 but for the sake of simplifying the example code it's separate)
+  // 3.
   for (const auto& group : qdq_groups) {
     NodeUnit node_unit(graph_viewer, group);
     // assertion: for a QDQ node group we know the necessary info is contained within the group,
