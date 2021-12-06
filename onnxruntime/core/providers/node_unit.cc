@@ -27,11 +27,7 @@ std::vector<NodeUnit::IODef> DefsFromQDQGroup(const GraphViewer& graph_viewer, c
   const auto node_defs = input ? target_node.InputDefs() : target_node.OutputDefs();
 
   // initialize with original NodeArg entries
-  std::vector<NodeUnit::IODef> defs;
-  defs.reserve(node_defs.size());
-  for (const auto* def : node_defs) {
-    defs.push_back(NodeUnit::IODef{def});
-  }
+  std::vector<NodeUnit::IODef> defs{DefsFromNode(input ? target_node.InputDefs() : target_node.OutputDefs())};
 
   // for any DQ inputs, replace the original with the DQ input and add the scale/zp metadata
   auto cur = input ? target_node.InputEdgesBegin() : target_node.OutputEdgesBegin();
@@ -39,15 +35,16 @@ std::vector<NodeUnit::IODef> DefsFromQDQGroup(const GraphViewer& graph_viewer, c
 
   for (; cur != end; ++cur) {
     const Node& node = cur->GetNode();  // src node if input, dst node if output
-
-    const std::vector<NodeIndex>& dq_or_q_nodes = input ? qdq_group.dq_nodes : qdq_group.q_nodes;
+    const auto& dq_or_q_nodes = input ? qdq_group.dq_nodes : qdq_group.q_nodes;
 
     auto qdq_iter = std::find(dq_or_q_nodes.cbegin(), dq_or_q_nodes.cend(), node.Index());
     if (qdq_iter != dq_or_q_nodes.cend()) {
       const auto dq_or_q_defs = input ? node.InputDefs() : node.OutputDefs();
       const NodeArg* zp = dq_or_q_defs.size() > 2 ? dq_or_q_defs[2] : nullptr;
 
-      // replace original def. if coming from DQ node we're replacing the destination of the edge (the consumer node)
+      // replace original def.
+      // if coming from DQ node we're replacing the destination of the edge - the input index on the target node
+      // if going to the Q node we're replacing the source of the edge - the output index on the target node
       auto idx = input ? cur->GetDstArgIndex() : cur->GetSrcArgIndex();
       defs[idx] = NodeUnit::IODef{dq_or_q_defs[0], NodeUnit::IODef::QDQMetadata{dq_or_q_defs[1], zp}};
     }
@@ -80,8 +77,6 @@ NodeUnit::NodeUnit(const Node& node)
     : type_{Type::Node},
       input_defs_{DefsFromNode(node.InputDefs())},
       output_defs_{DefsFromNode(node.InputDefs())},
-      // input_edges_{graph_utils::GraphEdge::GetNodeInputEdges(node)},
-      // output_edges_{graph_utils::GraphEdge::GetNodeOutputEdges(node)},
       node_{node},
       nodes_{{&node}} {
 }
@@ -90,8 +85,6 @@ NodeUnit::NodeUnit(const GraphViewer& graph_viewer, const QDQ::NodeGroup& qdq_gr
     : type_{Type::QDQ},
       input_defs_{InputDefsFromQDQGroup(graph_viewer, qdq_group)},
       output_defs_{OutputDefsFromQDQGroup(graph_viewer, qdq_group)},
-      // input_edges_{},
-      // output_edges_{},
       node_{*graph_viewer.GetNode(qdq_group.target_node)},
       nodes_{GetQDQNodes(graph_viewer, qdq_group)} {
 }

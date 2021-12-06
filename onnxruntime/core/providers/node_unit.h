@@ -34,7 +34,7 @@ class NodeUnit {
       const NodeArg* zero_point{nullptr};
     };
 
-    const NodeArg* nodearg{nullptr};  // never nullptr. we use pointer to make usage simpler
+    const NodeArg* nodearg{nullptr};  // never nullptr. could be reference but pointer to make usage in vector simpler.
     std::optional<QDQMetadata> qdq_metadata;
   };
 
