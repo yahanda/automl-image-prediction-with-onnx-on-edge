@@ -82,3 +82,12 @@
 [submodule "cmake/external/tvm_update"]
 	path = cmake/external/tvm_update
 	url = https://github.com/apache/tvm
+[submodule "cmake/external/xnnpack"]
+	path = cmake/external/xnnpack
+	url = https://github.com/google/XNNPACK
+[submodule "cmake/external/pthreadpool"]
+	path = cmake/external/pthreadpool
+	url = https://github.com/Maratyszcza/pthreadpool.git
+[submodule "cmake/external/FP16"]
+	path = cmake/external/FP16
+	url = https://github.com/Maratyszcza/FP16.git
