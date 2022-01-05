@@ -1,10 +1,7 @@
 // Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License.
 
-#ifdef _WIN32
-// disable some warnings from protobuf to pass Windows build
-#pragma warning(disable : 4244)
-#endif
+#include "core/graph/graph.h"
 
 #include <cassert>
 #include <fstream>
@@ -69,30 +66,42 @@ static bool UsingLatestOnnxOpset(const DomainToVersionMap& opset_versions) {
 static Status MergeShapeInfo(const std::string& output_name,
                              const TypeProto& source, TypeProto& target,
                              bool strict, const logging::Logger& logger) {
-#if !defined(DISABLE_SPARSE_TENSORS)
-  if (!(utils::HasTensorType(source) && utils::HasTensorType(target)) &&
-      !(utils::HasOptionalTensorType(source) && utils::HasOptionalTensorType(target)) &&
-      !(utils::HasSparseTensorType(source) && utils::HasSparseTensorType(target))) {
-    return ORT_MAKE_STATUS(ONNXRUNTIME, FAIL,
-                           "Source and target must both be either tensors, "
-                           "optional tensors, or sparse tensors");
-  }
-#else
-  if (!(utils::HasTensorType(source) && utils::HasTensorType(target))) {
-    return ORT_MAKE_STATUS(ONNXRUNTIME, FAIL,
-                           "Source and target must both be tensors");
-  }
+  if (!(utils::HasTensorType(source) && utils::HasTensorType(target))
+#if !defined(DISABLE_OPTIONAL_TYPE)
+      && !(utils::HasOptionalTensorType(source) && utils::HasOptionalTensorType(target))
 #endif
+
+#if !defined(DISABLE_SPARSE_TENSORS)
+      && !(utils::HasSparseTensorType(source) && utils::HasSparseTensorType(target))
+#endif
+  ) {
+    std::ostringstream ss;
+    ss << "Source and target must both be tensors";
+
+#if !defined(DISABLE_OPTIONAL_TYPE)
+    ss << " , or optional typed entities";
+#endif
+
+#if !defined(DISABLE_SPARSE_TENSORS)
+    ss << " , or sparse tensors";
+#endif
+
+    return ORT_MAKE_STATUS(ONNXRUNTIME, FAIL, ss.str());
+  }
 
   auto status = Status::OK();
 
   ORT_TRY {
     if (utils::HasTensorType(source)) {
       ONNX_NAMESPACE::mergeInShapeInfo(source.tensor_type(), *target.mutable_tensor_type());
-    } else if (utils::HasOptionalTensorType(source)) {
+    }
+#if !defined(DISABLE_OPTIONAL_TYPE)
+    else if (utils::HasOptionalTensorType(source)) {
       ONNX_NAMESPACE::mergeInShapeInfo(utils::GetOptionalTypeProto(source).tensor_type(),
                                        *utils::GetMutableOptionalTypeProto(target)->mutable_tensor_type());
     }
+#endif
+
 #if !defined(DISABLE_SPARSE_TENSORS)
     else {
       ONNX_NAMESPACE::mergeInShapeInfo(source.sparse_tensor_type(), *target.mutable_sparse_tensor_type());
@@ -112,9 +121,13 @@ static Status MergeShapeInfo(const std::string& output_name,
                             << ". Falling back to lenient merge.";
       if (utils::HasTensorType(source)) {
         ONNX_NAMESPACE::UnionShapeInfo(utils::GetShape(source), *target.mutable_tensor_type());
-      } else if (utils::HasOptionalTensorType(source)) {
+      }
+#if !defined(DISABLE_OPTIONAL_TYPE)
+      else if (utils::HasOptionalTensorType(source)) {
         ONNX_NAMESPACE::UnionShapeInfo(utils::GetShape(source), *utils::GetMutableOptionalTypeProto(target)->mutable_tensor_type());
       }
+#endif
+
 #if !defined(DISABLE_SPARSE_TENSORS)
       else {
         ONNX_NAMESPACE::UnionShapeInfo(utils::GetShape(source), *target.mutable_sparse_tensor_type());
@@ -233,6 +246,8 @@ const TensorShapeProto* NodeArg::Shape() const {
       return nullptr;
     }
 #endif
+
+#if !defined(DISABLE_OPTIONAL_TYPE)
     case TypeProto::kOptionalType: {
       // Shape is applicable only for optional tensor type
       if (utils::HasOptionalTensorType(*type) &&
@@ -241,6 +256,8 @@ const TensorShapeProto* NodeArg::Shape() const {
       }
       return nullptr;
     }
+#endif
+
     case TypeProto::kSequenceType:
     case TypeProto::kMapType:
     case TypeProto::kOpaqueType:
@@ -285,6 +302,8 @@ void NodeArg::SetShape(const TensorShapeProto& shape) {
       *(node_arg_info_.mutable_type()->mutable_sparse_tensor_type()->mutable_shape()) = shape;
       break;
 #endif
+
+#if !defined(DISABLE_OPTIONAL_TYPE)
     case TypeProto::kOptionalType:
       // Set shape only for optional tensors
       if (utils::HasOptionalTensorType(node_arg_info_.type())) {
@@ -293,6 +312,7 @@ void NodeArg::SetShape(const TensorShapeProto& shape) {
               ->mutable_shape()) = shape;
       }
       break;
+#endif
     case TypeProto::kSequenceType:
     case TypeProto::kMapType:
     case TypeProto::kOpaqueType:
@@ -313,6 +333,8 @@ void NodeArg::ClearShape() {
       node_arg_info_.mutable_type()->mutable_sparse_tensor_type()->clear_shape();
       break;
 #endif
+
+#if !defined(DISABLE_OPTIONAL_TYPE)
     case TypeProto::kOptionalType:
       // Clear shape only for optional tensors
       if (utils::HasOptionalTensorType(node_arg_info_.type())) {
@@ -321,6 +343,8 @@ void NodeArg::ClearShape() {
             ->clear_shape();
       }
       break;
+#endif
+
     case TypeProto::kSequenceType:
     case TypeProto::kMapType:
     case TypeProto::kOpaqueType:
@@ -410,15 +434,19 @@ common::Status NodeArg::UpdateTypeAndShape(const ONNX_NAMESPACE::TypeProto& inpu
     }
 #endif
 
+#if !defined(DISABLE_OPTIONAL_TYPE)
     case TypeProto::kOptionalType: {
-      if ((utils::HasOptionalTensorType(input_type) && !utils::HasOptionalTensorType(current_type)) ||
-          (!utils::HasOptionalTensorType(input_type) && utils::HasOptionalTensorType(current_type))) {
+      bool is_input_type_optional_tensor_type = utils::HasOptionalTensorType(input_type);
+      bool is_current_type_optional_tensor_type = utils::HasOptionalTensorType(current_type);
+
+      // Check for homogeneity within optional type
+      if (is_input_type_optional_tensor_type != is_current_type_optional_tensor_type) {
         return ORT_MAKE_STATUS(ONNXRUNTIME, FAIL, "Optional Type mismatch. Expected: ", ONNX_NAMESPACE::Utils::DataTypeUtils::ToType(current_type),
                                " . Got: ", ONNX_NAMESPACE::Utils::DataTypeUtils::ToType(input_type));
       }
 
       // Updating element type and shape is only applicable for optional tensors
-      if (utils::HasOptionalTensorType(input_type)) {
+      if (is_input_type_optional_tensor_type) {
         const auto& optional_input_type = utils::GetOptionalTypeProto(input_type);
         auto& optional_current_type = *utils::GetMutableOptionalTypeProto(current_type);
 
@@ -444,6 +472,7 @@ common::Status NodeArg::UpdateTypeAndShape(const ONNX_NAMESPACE::TypeProto& inpu
 
       break;
     }
+#endif
 
     case TypeProto::kSequenceType:
     case TypeProto::kMapType:
@@ -673,7 +702,7 @@ flatbuffers::Offset<fbs::NodeEdge> Node::SaveEdgesToOrtFormat(flatbuffers::FlatB
 
 Status Node::LoadFromOrtFormat(const onnxruntime::fbs::Node& fbs_node, Graph& graph,
                                const logging::Logger& logger, std::unique_ptr<Node>& node) {
-  node.reset(new Node(fbs_node.index(), graph));
+  node = std::make_unique<Node>(fbs_node.index(), graph);
   return node->LoadFromOrtFormat(fbs_node, logger);
 }
 
@@ -828,9 +857,9 @@ void Node::CreateSubgraph(const std::string& attr_name) {
 
   if (attr != attributes_.cend() && utils::HasGraph(attr->second)) {
     GraphProto& mutable_graph = *attr->second.mutable_g();
-    std::unique_ptr<Graph> subgraph{new Graph(*graph_, *this, mutable_graph)};
+    std::unique_ptr<Graph> subgraph = std::make_unique<Graph>(*graph_, *this, mutable_graph);
     attr_to_subgraph_map_.insert({std::string(attr_name), gsl::not_null<Graph*>{subgraph.get()}});
-    subgraphs_.push_back(std::move(subgraph));
+    subgraphs_.emplace_back(std::move(subgraph));
   }
 }
 
@@ -1072,7 +1101,7 @@ Graph::Graph(const Model& owning_model,
              const logging::Logger& logger)
     : owning_model_(owning_model),
       graph_proto_(graph_proto),
-#if defined(ORT_ENABLE_ORT_FORMAT_RUNTIME_GRAPH_OPTIMIZATION)
+#if !defined(ORT_MINIMAL_BUILD) || defined(ORT_ENABLE_RUNTIME_OPTIMIZATION_REPLAY_IN_MINIMAL_BUILD)
       runtime_optimizations_ptr_(std::make_unique<RuntimeOptimizationRecordContainer>()),
       runtime_optimizations_(*runtime_optimizations_ptr_),
 #endif
@@ -1906,10 +1935,12 @@ bool FullyDefinedType(const TypeProto& type_proto) {
       auto& seq_type = type_proto.sequence_type();
       return utils::HasElemType(seq_type) && FullyDefinedType(seq_type.elem_type());
     }
+#if !defined(DISABLE_OPTIONAL_TYPE)
     case TypeProto::kOptionalType: {
       auto& optional_type = type_proto.optional_type();
       return utils::HasElemType(optional_type) && FullyDefinedType(optional_type.elem_type());
     }
+#endif
     case TypeProto::kMapType: {
       auto& map_type = type_proto.map_type();
       return utils::HasKeyType(map_type) &&
@@ -2346,11 +2377,15 @@ Status Graph::InferAndVerifyTypeMatch(Node& node, const OpSchema& op, const Reso
         TypeProto merge_target;
         if (utils::HasTensorType(onnx_inferred_type)) {
           *merge_target.mutable_tensor_type()->mutable_shape() = *output_def->Shape();
-        } else if (utils::HasOptionalTensorType(onnx_inferred_type)) {
+        }
+#if !defined(DISABLE_OPTIONAL_TYPE)
+        else if (utils::HasOptionalTensorType(onnx_inferred_type)) {
           *utils::GetMutableOptionalTypeProto(merge_target)
                ->mutable_tensor_type()
                ->mutable_shape() = *output_def->Shape();
         }
+#endif
+
 #if !defined(DISABLE_SPARSE_TENSORS)
         else if (utils::HasSparseTensorType(onnx_inferred_type)) {
           *merge_target.mutable_sparse_tensor_type()->mutable_shape() = *output_def->Shape();
@@ -2479,7 +2514,8 @@ Status Graph::VerifyNodeAndOpMatch(const ResolveOptions& options) {
         }
         ORT_CATCH(const std::exception& ex) {
           ORT_HANDLE_EXCEPTION([&]() {
-            status = ORT_MAKE_STATUS(ONNXRUNTIME, INVALID_GRAPH, "This is an invalid model. Error in Node:", node_name, " : ", ex.what());
+            status = ORT_MAKE_STATUS(ONNXRUNTIME, INVALID_GRAPH,
+                                     "This is an invalid model. In Node, ", node, ", Error ", ex.what());
           });
         }
         ORT_RETURN_IF_ERROR(status);
@@ -2545,6 +2581,15 @@ Status Graph::VerifyNodeAndOpMatch(const ResolveOptions& options) {
     // Accumulate output names of the iterated Node
     for (auto& output_name : node_proto.output()) {
       lsc.output_names.insert(output_name);
+    }
+  }
+
+  // verify subgraphs
+  for (auto node_index : nodes_in_topological_order_) {
+    auto& node = *GetNode(node_index);
+    for (auto& entry : node.GetAttributeNameToMutableSubgraphMap()) {
+      Graph* subgraph = entry.second;
+      ORT_RETURN_IF_ERROR(subgraph->VerifyNodeAndOpMatch(options));
     }
   }
 
@@ -2819,7 +2864,7 @@ static void RemoveRepeatedFieldEntry(T& repeated_field, const TIter& entry_to_re
     // we do this so we don't have to move all the entries past the one being deleted down one.
     auto slot = entry_to_remove - repeated_field.begin();
     auto last_entry = repeated_field.end() - 1;
-    repeated_field.SwapElements(slot, num_entries - 1);
+    repeated_field.SwapElements(gsl::narrow<int>(slot), gsl::narrow<int>(num_entries - 1));
     repeated_field.erase(last_entry);
   } else {
     repeated_field.erase(entry_to_remove);
@@ -3128,7 +3173,7 @@ common::Status Graph::SaveToOrtFormat(flatbuffers::FlatBufferBuilder& builder,
   auto nodes = builder.CreateVector(nodes_vec);
   auto node_edges = builder.CreateVector(node_edges_vec);
 
-#if defined(ORT_ENABLE_ORT_FORMAT_RUNTIME_GRAPH_OPTIMIZATION)
+#if !defined(ORT_MINIMAL_BUILD) || defined(ORT_ENABLE_RUNTIME_OPTIMIZATION_REPLAY_IN_MINIMAL_BUILD)
   auto runtime_optimizations = flatbuffers::Offset<fbs::RuntimeOptimizations>{};  // null value
   if (!RuntimeOptimizations().IsEmpty()) {
     flatbuffers::Offset<RuntimeOptimizationRecordContainer::FbsRuntimeOptimizationRecordContainer>
@@ -3149,7 +3194,7 @@ common::Status Graph::SaveToOrtFormat(flatbuffers::FlatBufferBuilder& builder,
 #if !defined(DISABLE_SPARSE_TENSORS)
   gb.add_sparse_initializers(sparse_initializers);
 #endif
-#if defined(ORT_ENABLE_ORT_FORMAT_RUNTIME_GRAPH_OPTIMIZATION)
+#if !defined(ORT_MINIMAL_BUILD) || defined(ORT_ENABLE_RUNTIME_OPTIMIZATION_REPLAY_IN_MINIMAL_BUILD)
   gb.add_runtime_optimizations(runtime_optimizations);
 #endif
   fbs_graph = gb.Finish();
@@ -3951,7 +3996,7 @@ Status Graph::InlineFunction(Node& node) {
   // main graph.
   const Graph& subgraph = node.GetFunctionBody()->Body();
   auto output_edges = node.GetRelationships().output_edges;
-  for (auto output_edge : output_edges) {
+  for (const auto& output_edge : output_edges) {
     RemoveEdge(node.Index(), output_edge.GetNode().Index(), output_edge.GetSrcArgIndex(), output_edge.GetDstArgIndex());
   }
 
@@ -4082,7 +4127,7 @@ void Graph::SetNodeArgType(NodeArg& arg, const ONNX_NAMESPACE::TypeProto& type_p
   GraphResolveNeeded(true);
 }
 
-#endif  //  !defined(ORT_MINIMAL_BUILD)
+#endif  // !defined(ORT_MINIMAL_BUILD)
 
 Graph::~Graph() {
   // nothing to do, but we put it here so we don't need to fully define types in Graph that are held in unique_ptr
@@ -4090,32 +4135,72 @@ Graph::~Graph() {
 }
 
 #if !defined(ORT_MINIMAL_BUILD)
+std::ostream& operator<<(std::ostream& out, const NodeArg& node_arg) {
+  out << "\"" << node_arg.Name() << "\"";
+  if (node_arg.Type()) {
+    out << ": " << *node_arg.Type();
+  }
+  return out;
+}
+
+std::ostream& operator<<(std::ostream& out, const Node& node) {
+  out << "(\"" << node.Name() << "\""
+      << ", "
+      << node.OpType()
+      << ", "
+      // Use quote so default ONNX domain is shown as ""
+      // rather than misleading empty string.
+      << "\"" << node.Domain() << "\""
+      << ", "
+      << node.SinceVersion()
+      << ") : (";
+  for (const auto* x : node.InputDefs()) {
+    if (x->Exists()) {
+      out << *x << ",";
+    } else {
+      // Print missing (or optional) inputs
+      // because operator schema uses positional
+      // arguments in ONNX.
+      out << "\"\""
+          << ",";
+    }
+  }
+  out << ") -> (";
+  for (const auto* x : node.OutputDefs()) {
+    if (x->Exists()) {
+      out << *x << ",";
+    } else {
+      // Print missing (or optional) outputs
+      // because operator schema uses positional
+      // arguments in ONNX.
+      out << "\"\""
+          << ",";
+    }
+  }
+  out << ") ";
+  return out;
+}
+
 std::ostream& operator<<(std::ostream& out, const Graph& graph) {
   out << "Inputs:\n";
-  for (auto* x : graph.GetInputs()) {
-    out << "   " << x->Name() << " : " << *x->Type() << "\n";
+  for (const auto* x : graph.GetInputs()) {
+    // Unlike we print missing input and output for operator, we don't
+    // print missing input for graph because they are not helpful (we
+    // don't have a fixed schema for graph to match arguments).
+    if (x) {
+      out << "   " << *x << "\n";
+    }
   }
   out << "Nodes:\n";
-  for (auto& node : graph.Nodes()) {
-    out << "   " << node.Name() << ": " << node.OpType() << " (";
-    for (auto* x : node.InputDefs()) {
-      if (x->Exists()) {
-        out << x->Name() << ": " << *x->Type();
-      }
-      out << ", ";
-    }
-    out << ") -> ";
-    for (auto* x : node.OutputDefs()) {
-      if (x->Exists()) {
-        out << x->Name() << ": " << *x->Type();
-      }
-      out << ", ";
-    }
-    out << "\n";
+  for (const auto& node : graph.Nodes()) {
+    out << "   " << node << "\n";
   }
   out << "Outputs:\n";
-  for (auto* x : graph.GetOutputs()) {
-    out << "   " << x->Name() << " : " << *x->Type() << "\n";
+  for (const auto* x : graph.GetOutputs()) {
+    // Similar to graph input, missing graph output is not printed.
+    if (x) {
+      out << "   " << *x << "\n";
+    }
   }
   return out;
 }
@@ -4128,12 +4213,11 @@ Status Graph::LoadFromOrtFormat(const onnxruntime::fbs::Graph& fbs_graph,
                                 IOnnxRuntimeOpSchemaCollectionPtr schema_registry,
 #endif
                                 const logging::Logger& logger, std::unique_ptr<Graph>& graph) {
-  // can't use make_unique as we're calling a private ctor
-  graph.reset(new Graph(owning_model, domain_to_version,
+  graph = std::make_unique<Graph>(owning_model, domain_to_version,
 #if !defined(ORT_MINIMAL_BUILD)
-                        schema_registry,
+                                  schema_registry,
 #endif
-                        nullptr, nullptr, logger));
+                                  nullptr, nullptr, logger);
 
   ORT_RETURN_IF_ERROR(graph->LoadFromOrtFormat(fbs_graph));
 
@@ -4152,14 +4236,13 @@ Status Graph::LoadFromOrtFormat(const onnxruntime::fbs::Graph& fbs_graph,
 Status Graph::LoadFromOrtFormat(const onnxruntime::fbs::Graph& fbs_graph,
                                 Graph& parent_graph, const Node& parent_node,
                                 const logging::Logger& logger, std::unique_ptr<Graph>& graph) {
-  // can't use make_unique as we're calling a private ctor
-  graph.reset(new Graph(parent_graph.owning_model_,
-                        parent_graph.domain_to_version_,
+  graph = std::make_unique<Graph>(parent_graph.owning_model_,
+                                  parent_graph.domain_to_version_,
 #if !defined(ORT_MINIMAL_BUILD)
-                        parent_graph.schema_registry_,
+                                  parent_graph.schema_registry_,
 #endif
-                        &parent_graph, &parent_node,
-                        logger));
+                                  &parent_graph, &parent_node,
+                                  logger);
 
   return graph->LoadFromOrtFormat(fbs_graph);
 }
@@ -4173,7 +4256,7 @@ Graph::Graph(const Model& owning_model,
              const logging::Logger& logger)
     : owning_model_(owning_model),
       graph_proto_(&deserialized_proto_data_),
-#if defined(ORT_ENABLE_ORT_FORMAT_RUNTIME_GRAPH_OPTIMIZATION)
+#if !defined(ORT_MINIMAL_BUILD) || defined(ORT_ENABLE_RUNTIME_OPTIMIZATION_REPLAY_IN_MINIMAL_BUILD)
       runtime_optimizations_ptr_(std::make_unique<RuntimeOptimizationRecordContainer>()),
       runtime_optimizations_(*runtime_optimizations_ptr_),
 #endif
@@ -4260,8 +4343,7 @@ common::Status Graph::LoadFromOrtFormat(const onnxruntime::fbs::Graph& fbs_graph
       ORT_RETURN_IF(nullptr == fbs_value_info, "NodeArg is missing. Invalid ORT format model.");
       NodeArgInfo node_arg_info;
       ORT_RETURN_IF_ERROR(fbs::utils::LoadValueInfoOrtFormat(*fbs_value_info, node_arg_info));
-      // NodeArg ctor is private, cannot use make_unique
-      node_args_[fbs_value_info->name()->str()] = std::unique_ptr<NodeArg>(new NodeArg(std::move(node_arg_info)));
+      node_args_[fbs_value_info->name()->str()] = std::make_unique<NodeArg>(std::move(node_arg_info));
     }
   }
 
@@ -4321,14 +4403,14 @@ common::Status Graph::LoadFromOrtFormat(const onnxruntime::fbs::Graph& fbs_graph
 
   ORT_RETURN_IF_ERROR(add_node_args(fbs_graph.outputs(), graph_outputs_));
 
-#if defined(ORT_ENABLE_ORT_FORMAT_RUNTIME_GRAPH_OPTIMIZATION)
+#if !defined(ORT_MINIMAL_BUILD) || defined(ORT_ENABLE_RUNTIME_OPTIMIZATION_REPLAY_IN_MINIMAL_BUILD)
   // runtime optimizations
   if (const auto* fbs_runtime_optimizations = fbs_graph.runtime_optimizations()) {
     if (const auto* fbs_runtime_optimization_records = fbs_runtime_optimizations->records()) {
       ORT_RETURN_IF_ERROR(MutableRuntimeOptimizations().LoadFromOrtFormat(*fbs_runtime_optimization_records));
     }
   }
-#endif  // defined(ORT_ENABLE_ORT_FORMAT_RUNTIME_GRAPH_OPTIMIZATION)
+#endif  // !defined(ORT_MINIMAL_BUILD) || defined(ORT_ENABLE_RUNTIME_OPTIMIZATION_REPLAY_IN_MINIMAL_BUILD)
 
   return Status::OK();
 }

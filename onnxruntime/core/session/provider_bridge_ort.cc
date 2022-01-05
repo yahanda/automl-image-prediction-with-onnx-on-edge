@@ -140,7 +140,9 @@ struct Node__EdgeIterator_Impl : Node__EdgeIterator {
 
   Node::EdgeConstIterator v_;
 };
-
+#if defined(_MSC_VER) && !defined(__clang__)
+#pragma warning(disable : 26409)
+#endif
 // wrapped = The internal object is exposed as an opaque pointer, so we wrap it in a class that forwards every call to the real calls. No members are ever directly accessed
 // direct = Same implementation is used for shared providers & core code, but some of the methods need to be routed through here to make the linker happy
 struct ProviderHostImpl : ProviderHost {
@@ -269,7 +271,7 @@ struct ProviderHostImpl : ProviderHost {
     return p->IExecutionProvider::Compile(fused_nodes_and_graphs, node_compute_funcs);
   }
 
-  int IExecutionProvider__GenerateMetaDefId(const IExecutionProvider* p, const onnxruntime::GraphViewer& graph_viewer, uint64_t& model_hash) override {
+  int IExecutionProvider__GenerateMetaDefId(const IExecutionProvider* p, const onnxruntime::GraphViewer& graph_viewer, HashValue& model_hash) override {
     return p->IExecutionProvider::GenerateMetaDefId(graph_viewer, model_hash);
   }
 
@@ -282,7 +284,7 @@ struct ProviderHostImpl : ProviderHost {
 
   // TensorShape (direct)
   void TensorShape__operator_assign(TensorShape* p, const TensorShape& other) override { p->TensorShape::operator=(other); }
-  void TensorShape__operator_move_assign(TensorShape* p, TensorShape&& other) override { p->TensorShape::operator=(std::move(other)); }
+  void TensorShape__operator_move_assign(TensorShape* p, TensorShape&& other) noexcept override { p->TensorShape::operator=(std::move(other)); }
   void TensorShape__Allocate(TensorShape* p, size_t size) override { p->TensorShape::Allocate(size); }
   int64_t TensorShape__SizeHelper(const TensorShape* p, size_t start, size_t end) override { return p->TensorShape::SizeHelper(start, end); }
   std::string TensorShape__ToString(const TensorShape* p) override { return p->TensorShape::ToString(); }
@@ -315,9 +317,11 @@ struct ProviderHostImpl : ProviderHost {
   int int64s__size(const ONNX_NAMESPACE::int64s* p) override { return p->size(); }
   const int64_t& int64s__Get(const ONNX_NAMESPACE::int64s* p, int index) override { return p->Get(index); }
 
+#if !defined(DISABLE_OPTIONAL_TYPE)
   // TypeProto_Optional (wrapped)
   const ONNX_NAMESPACE::TypeProto& TypeProto_Optional__elem_type(const ONNX_NAMESPACE::TypeProto_Optional* p) override { return p->elem_type(); }
   ONNX_NAMESPACE::TypeProto* TypeProto_Optional__mutable_elem_type(ONNX_NAMESPACE::TypeProto_Optional* p) override { return p->mutable_elem_type(); }
+#endif
 
   // TypeProto_Sequence (wrapped)
   const ONNX_NAMESPACE::TypeProto& TypeProto_Sequence__elem_type(const ONNX_NAMESPACE::TypeProto_Sequence* p) override { return p->elem_type(); }
@@ -356,8 +360,10 @@ struct ProviderHostImpl : ProviderHost {
   }
 #endif
 
+#if !defined(DISABLE_OPTIONAL_TYPE)
   const ONNX_NAMESPACE::TypeProto_Optional& TypeProto__optional_type(const ONNX_NAMESPACE::TypeProto* p) override { return p->optional_type(); }
   ONNX_NAMESPACE::TypeProto_Optional* TypeProto__mutable_optional_type(ONNX_NAMESPACE::TypeProto* p) override { return p->mutable_optional_type(); }
+#endif
 
   const ONNX_NAMESPACE::TypeProto_Sequence& TypeProto__sequence_type(const ONNX_NAMESPACE::TypeProto* p) override { return p->sequence_type(); }
   ONNX_NAMESPACE::TypeProto_Sequence* TypeProto__mutable_sequence_type(ONNX_NAMESPACE::TypeProto* p) override { return p->mutable_sequence_type(); }
@@ -503,6 +509,7 @@ struct ProviderHostImpl : ProviderHost {
   ONNX_NAMESPACE::OperatorStatus& IndexedSubGraph_MetaDef__status(IndexedSubGraph_MetaDef* p) override { return p->status; }
   std::vector<std::string>& IndexedSubGraph_MetaDef__inputs(IndexedSubGraph_MetaDef* p) override { return p->inputs; }
   std::vector<std::string>& IndexedSubGraph_MetaDef__outputs(IndexedSubGraph_MetaDef* p) override { return p->outputs; }
+  std::vector<std::string>& IndexedSubGraph_MetaDef__constant_initializers(IndexedSubGraph_MetaDef* p) override { return p->constant_initializers; }
   NodeAttributes& IndexedSubGraph_MetaDef__attributes(IndexedSubGraph_MetaDef* p) override { return p->attributes; }
   std::string& IndexedSubGraph_MetaDef__doc_string(IndexedSubGraph_MetaDef* p) override { return p->doc_string; }
 

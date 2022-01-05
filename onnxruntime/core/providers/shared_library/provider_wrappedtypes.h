@@ -225,11 +225,13 @@ struct TypeProto_SparseTensor final {
 };
 #endif
 
+#if !defined(DISABLE_OPTIONAL_TYPE)
 struct TypeProto_Optional final {
   const TypeProto& elem_type() const { return g_host->TypeProto_Optional__elem_type(this); }
   TypeProto* mutable_elem_type() { return g_host->TypeProto_Optional__mutable_elem_type(this); }
   PROVIDER_DISALLOW_ALL(TypeProto_Optional)
 };
+#endif
 
 struct TypeProto_Sequence final {
   const TypeProto& elem_type() const { return g_host->TypeProto_Sequence__elem_type(this); }
@@ -246,8 +248,10 @@ struct TypeProto final {
   TypeProto_SparseTensor* mutable_sparse_tensor_type() { return g_host->TypeProto__mutable_sparse_tensor_type(this); }
 #endif
 
+#if !defined(DISABLE_OPTIONAL_TYPE)
   const TypeProto_Optional& optional_type() const { return g_host->TypeProto__optional_type(this); }
   TypeProto_Optional* mutable_optional_type() { return g_host->TypeProto__mutable_optional_type(this); }
+#endif
 
   const TypeProto_Sequence& sequence_type() const { return g_host->TypeProto__sequence_type(this); }
   TypeProto_Sequence* mutable_sequence_type() { return g_host->TypeProto__mutable_sequence_type(this); }
@@ -344,6 +348,8 @@ struct IndexedSubGraph_MetaDef final {
   const std::vector<std::string>& inputs() const { return g_host->IndexedSubGraph_MetaDef__inputs(const_cast<IndexedSubGraph_MetaDef*>(this)); }
   std::vector<std::string>& inputs() { return g_host->IndexedSubGraph_MetaDef__inputs(this); }
   const std::vector<std::string>& outputs() const { return g_host->IndexedSubGraph_MetaDef__outputs(const_cast<IndexedSubGraph_MetaDef*>(this)); }
+  const std::vector<std::string>& constant_initializers() const { return g_host->IndexedSubGraph_MetaDef__constant_initializers(const_cast<IndexedSubGraph_MetaDef*>(this)); }
+  std::vector<std::string>& constant_initializers() { return g_host->IndexedSubGraph_MetaDef__constant_initializers(this); }
   std::vector<std::string>& outputs() { return g_host->IndexedSubGraph_MetaDef__outputs(this); }
   NodeAttributes& attributes() { return g_host->IndexedSubGraph_MetaDef__attributes(this); }
 

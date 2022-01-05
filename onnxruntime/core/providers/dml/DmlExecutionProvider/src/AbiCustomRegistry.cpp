@@ -345,6 +345,7 @@ HRESULT STDMETHODCALLTYPE AbiCustomRegistry::RegisterOperatorKernel(
     bool supportedWith64BitTensorsVia32BitStrides,
     bool supportedWith64BitTensorsVia32BitStridesFromAnyEp,
     bool prefer64BitTensorsDirectly,
+    bool support64BitTensorsViaEmulation,
     _In_reads_(constantCpuInputCount) const uint32_t* requiredConstantCpuInputs,
     uint32_t constantCpuInputCount) const noexcept
 {
@@ -449,9 +450,9 @@ HRESULT STDMETHODCALLTYPE AbiCustomRegistry::RegisterOperatorKernel(
         constantCpuInputCapture,
         shapeInferrerCapture,
         defaultAttributesCapture
-        ](const onnxruntime::OpKernelInfo& info) -> onnxruntime::OpKernel*
+        ](onnxruntime::FuncManager&, const onnxruntime::OpKernelInfo& info, std::unique_ptr<onnxruntime::OpKernel>& out) -> onnxruntime::common::Status
         {
-            return new AbiOpKernel(
+            out = std::make_unique<AbiOpKernel>(
                     kernelFactoryCapture.Get(),
                     info,
                     requiresInputShapesAtCreation,
@@ -460,6 +461,7 @@ HRESULT STDMETHODCALLTYPE AbiCustomRegistry::RegisterOperatorKernel(
                     constantCpuInputCapture,
                     shapeInferrerCapture.Get(),
                     &defaultAttributesCapture);
+			return Status::OK();
         };
 
     onnxruntime::KernelCreateInfo create_info(builder.Build(), lotusKernelCreateFn);
@@ -472,6 +474,7 @@ HRESULT STDMETHODCALLTYPE AbiCustomRegistry::RegisterOperatorKernel(
         regInfo->supportedWith64BitTensorsVia32BitStrides = supportedWith64BitTensorsVia32BitStrides;
         regInfo->supportedWith64BitTensorsVia32BitStridesFromAnyEp = supportedWith64BitTensorsVia32BitStridesFromAnyEp;
         regInfo->prefer64BitTensorsDirectly = prefer64BitTensorsDirectly;
+        regInfo->support64BitTensorsViaEmulation = support64BitTensorsViaEmulation;
 
         // Only internal operators support usage in DML graphs
         if (supportsGraph)
@@ -546,7 +549,8 @@ HRESULT STDMETHODCALLTYPE AbiCustomRegistry::RegisterOperatorKernel(
             requiredConstantCpuInputs ||
             supportedWith64BitTensorsVia32BitStrides ||
             supportedWith64BitTensorsVia32BitStridesFromAnyEp ||
-            prefer64BitTensorsDirectly)
+            prefer64BitTensorsDirectly ||
+            support64BitTensorsViaEmulation)
         {
             ORT_THROW_HR(E_INVALIDARG);
         }
