@@ -191,7 +191,7 @@ elseif (NOT WIN32 AND NOT APPLE)
 endif()
 
 # option to enable XNNPACK
-option(onnxruntime_ENABLE_XNNPACK "Enable XNNPACK as an alternative math library on ARM" OFF)
+option(onnxruntime_USE_XNNPACK "Enable XNNPACK as an alternative math library on ARM" OFF)
 
 # Single output director for all binaries
 set(RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin CACHE PATH "Single output directory for all binaries.")
@@ -1147,11 +1147,12 @@ if (onnxruntime_USE_XNNPACK)
   set(FP16_BUILD_BENCHMARKS OFF CACHE INTERNAL "")
   set(CLOG_SOURCE_DIR "${PYTORCH_CPUINFO_DIR}/deps/clog")
   set(CPUINFO_SOURCE_DIR ${PYTORCH_CPUINFO_DIR})
-  add_subdirectory(external/FP16)
-
+  add_subdirectory(external/FP16)  
   add_subdirectory(external/pthreadpool)
   #add_subdirectory(external/xnnpack)
   add_subdirectory(xnnpack)
+  set_target_properties(XNNPACK PROPERTIES FOLDER "External")
+  set_target_properties(pthreadpool PROPERTIES FOLDER "External")
 endif()
 function(onnxruntime_set_compile_flags target_name)
     target_compile_definitions(${target_name} PUBLIC EIGEN_USE_THREADS)

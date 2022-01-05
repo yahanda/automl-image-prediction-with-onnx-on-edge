@@ -4018,6 +4018,6 @@ ENDIF()
 
 TARGET_INCLUDE_DIRECTORIES(XNNPACK PUBLIC ${PROJECT_SOURCE_DIR}/external/xnnpack/include)
 TARGET_INCLUDE_DIRECTORIES(XNNPACK PRIVATE ${PROJECT_SOURCE_DIR}/external/xnnpack/src)
-onnxruntime_add_include_to_target(XNNPACK pthreadpool fxdiv fp16 cpuinfo clog )
+onnxruntime_add_include_to_target(XNNPACK pthreadpool fxdiv fp16 cpuinfo clog)
 
 
