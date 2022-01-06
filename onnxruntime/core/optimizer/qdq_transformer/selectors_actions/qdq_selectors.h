@@ -140,7 +140,7 @@ class BaseSelector : public NodeSelector {
 class DropQDQNodesSelector : public BaseSelector {
  public:
   DropQDQNodesSelector()
-      : BaseSelector(std::unique_ptr<NodeGroupSelector>(new DropQDQNodeGroupSelector())) {}
+      : BaseSelector(std::make_unique<DropQDQNodeGroupSelector>()) {}
 };
 
 class UnarySelector : public BaseSelector {
