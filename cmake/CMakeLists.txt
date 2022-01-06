@@ -1833,6 +1833,10 @@ if (CMAKE_SYSTEM_NAME STREQUAL "Android")
   list(APPEND onnxruntime_EXTERNAL_LIBRARIES log)
 endif()
 
+if (onnxruntime_USE_XNNPACK)
+  list(APPEND onnxruntime_EXTERNAL_LIBRARIES XNNPACK pthreadpool)
+endif()
+
 if (WIN32)
   list(APPEND onnxruntime_EXTERNAL_LIBRARIES ${SYS_PATH_LIB} Shlwapi)
   list(APPEND onnxruntime_EXTERNAL_LIBRARIES debug Dbghelp)

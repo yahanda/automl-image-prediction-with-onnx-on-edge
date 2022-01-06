@@ -18,7 +18,64 @@
 using namespace onnxruntime;
 typedef std::vector<std::unique_ptr<xnn_operator, decltype(&xnn_delete_operator)>> ExecutionPlan;
 
-ExecutionPlan FP32MobileNetV1(pthreadpool_t threadpool) {
+/**
+ * convert input from CHW format to HWC format
+ * \param input A single image. This float array has length of 3*h*w
+ * \param h image height
+ * \param w image width
+ * \param output A byte array. should be freed by caller after use
+ */
+static void chw_to_hwc(const float* input, size_t h, size_t w, float* output_data) {
+  size_t stride = h * w;
+  for (int c = 0; c != 3; ++c) {
+    size_t t = c * stride;
+    for (size_t i = 0; i != stride; ++i) {
+      float f = input[t + i];
+      if (f < 0.f || f > 255.0f) f = 0;
+      output_data[i * 3 + c] = f;
+    }
+  }
+}
+
+void LoadWeight(Graph& graph, const char* tensor_name, float* data, size_t length) {
+  float* data_end = data + length;
+  const ONNX_NAMESPACE::TensorProto* proto;
+  ORT_ENFORCE(graph.GetInitializedTensor(tensor_name, proto));
+  ORT_ENFORCE(proto->data_type() == ONNX_NAMESPACE::TensorProto_DataType_FLOAT);
+  int64_t tensor_data_len = 1;
+  for (auto dim : proto->dims()) {
+    tensor_data_len *= dim;
+  }
+  ORT_ENFORCE(static_cast<int64_t>(length) == tensor_data_len);
+  ORT_ENFORCE(proto->has_raw_data());
+  if (proto->dims_size() == 1) {
+    memcpy(data, proto->raw_data().data(), length * sizeof(float));
+    return;
+  }
+  //ONNX uses NCHW
+
+  ORT_ENFORCE(proto->dims_size() == 4);
+  int64_t stride = 1;
+  for (int i = 1; i != 4; ++i) {
+    stride *= proto->dims(i);
+  }
+  //TODO: safe cast
+  ptrdiff_t stride2 = static_cast<ptrdiff_t>(stride);
+  int64_t N = proto->dims(0);
+  //int C = proto->dims(1);
+  int64_t H = proto->dims(2);
+  int64_t W = proto->dims(3);
+  float* input = (float*)proto->raw_data().data();
+  for (int i = 0; i != N; ++i) {
+    chw_to_hwc(input, H, W, data);
+    input += stride2;
+    data += stride2;
+  }
+  ORT_ENFORCE(data_end == data);
+
+}
+
+ExecutionPlan FP32MobileNetV1(pthreadpool_t threadpool, std::shared_ptr<onnxruntime::Model>& onnx_model) {
   alignas(16) static std::array<float, 150528> v0;
   alignas(16) static std::array<float, 401408> v1;
   alignas(16) static std::array<float, 401408> v2;
@@ -49,14 +106,14 @@ ExecutionPlan FP32MobileNetV1(pthreadpool_t threadpool) {
   alignas(16) static std::array<float, 50176> v27;
   alignas(16) static std::array<float, 1024> v28;
   alignas(16) static std::array<float, 1001> v29;
-  alignas(16) static std::array<float, 864> w30;      //MobilenetV1/MobilenetV1/Conv2d_0/Conv2D_weights_fused_bn [32,3,3,3]
+  alignas(16) static std::array<float, 864> w30;      //MobilenetV1/MobilenetV1/Conv2d_0/Conv2D_weights_fused_bn
   alignas(16) static std::array<float, 32> w31;       //MobilenetV1/MobilenetV1/Conv2d_0/Conv2D_bias_fused_bn
   alignas(16) static std::array<float, 288> w32;      //MobilenetV1/MobilenetV1/Conv2d_1_depthwise/depthwise_weights_fused_bn
   alignas(16) static std::array<float, 32> w33;       //MobilenetV1/MobilenetV1/Conv2d_1_depthwise/depthwise_bias_fused_bn
   alignas(16) static std::array<float, 2048> w34;     //MobilenetV1/MobilenetV1/Conv2d_1_pointwise/Conv2D_weights_fused_bn
   alignas(16) static std::array<float, 64> w35;       //MobilenetV1/MobilenetV1/Conv2d_1_pointwise/Conv2D_bias_fused_bn
-  alignas(16) static std::array<float, 576> w36;      //MobilenetV1/MobilenetV1/Conv2d_1_pointwise/Conv2D_weights_fused_bn
-  alignas(16) static std::array<float, 64> w37;       //MobilenetV1/MobilenetV1/Conv2d_1_pointwise/Conv2D_bias_fused_bn
+  alignas(16) static std::array<float, 576> w36;      //MobilenetV1/MobilenetV1/Conv2d_2_depthwise/depthwise_weights_fused_bn
+  alignas(16) static std::array<float, 64> w37;       //MobilenetV1/MobilenetV1/Conv2d_2_depthwise/depthwise_bias_fused_bn
   alignas(16) static std::array<float, 8192> w38;     //MobilenetV1/MobilenetV1/Conv2d_2_depthwise/depthwise_weights_fused_bn
   alignas(16) static std::array<float, 128> w39;      //MobilenetV1/MobilenetV1/Conv2d_2_depthwise/depthwise_bias_fused_bn
   alignas(16) static std::array<float, 1152> w40;     //MobilenetV1/MobilenetV1/Conv2d_3_depthwise/depthwise_weights_fused_bn
@@ -105,6 +162,64 @@ ExecutionPlan FP32MobileNetV1(pthreadpool_t threadpool) {
   alignas(16) static std::array<float, 1024> w83;     //MobilenetV1/MobilenetV1/Conv2d_13_pointwise/Conv2D_bias_fused_bn
   alignas(16) static std::array<float, 1025024> w84;  //MobilenetV1/Logits/Conv2d_1c_1x1/weights/read:0
   alignas(16) static std::array<float, 1001> w85;     //MobilenetV1/Logits/Conv2d_1c_1x1/biases/read:0
+
+  Graph& graph = onnx_model->MainGraph();
+  LoadWeight(graph, "MobilenetV1/MobilenetV1/Conv2d_0/Conv2D_weights_fused_bn", w30.data(), w30.size());
+  LoadWeight(graph, "MobilenetV1/MobilenetV1/Conv2d_0/Conv2D_bias_fused_bn", w31.data(), w31.size());
+  LoadWeight(graph, "MobilenetV1/MobilenetV1/Conv2d_1_depthwise/depthwise_weights_fused_bn", w32.data(), w32.size());
+  LoadWeight(graph, "MobilenetV1/MobilenetV1/Conv2d_1_depthwise/depthwise_bias_fused_bn", w33.data(), w33.size());
+  LoadWeight(graph, "MobilenetV1/MobilenetV1/Conv2d_1_pointwise/Conv2D_weights_fused_bn", w34.data(), w34.size());
+  LoadWeight(graph, "MobilenetV1/MobilenetV1/Conv2d_1_pointwise/Conv2D_bias_fused_bn", w35.data(), w35.size());
+  LoadWeight(graph, "MobilenetV1/MobilenetV1/Conv2d_2_depthwise/depthwise_weights_fused_bn", w36.data(), w36.size());
+  LoadWeight(graph, "MobilenetV1/MobilenetV1/Conv2d_2_depthwise/depthwise_bias_fused_bn", w37.data(), w37.size());
+  LoadWeight(graph, "MobilenetV1/MobilenetV1/Conv2d_2_pointwise/Conv2D_weights_fused_bn", w38.data(), w38.size());
+  LoadWeight(graph, "MobilenetV1/MobilenetV1/Conv2d_2_pointwise/Conv2D_bias_fused_bn", w39.data(), w39.size());
+  LoadWeight(graph, "MobilenetV1/MobilenetV1/Conv2d_3_depthwise/depthwise_weights_fused_bn", w40.data(), w40.size());
+  LoadWeight(graph, "MobilenetV1/MobilenetV1/Conv2d_3_depthwise/depthwise_bias_fused_bn", w41.data(), w41.size());
+  LoadWeight(graph, "MobilenetV1/MobilenetV1/Conv2d_3_pointwise/Conv2D_weights_fused_bn", w42.data(), w42.size());
+  LoadWeight(graph, "MobilenetV1/MobilenetV1/Conv2d_3_pointwise/Conv2D_bias_fused_bn", w43.data(), w43.size());
+  LoadWeight(graph, "MobilenetV1/MobilenetV1/Conv2d_4_depthwise/depthwise_weights_fused_bn", w44.data(), w44.size());
+  LoadWeight(graph, "MobilenetV1/MobilenetV1/Conv2d_4_depthwise/depthwise_bias_fused_bn", w45.data(), w45.size());
+  LoadWeight(graph, "MobilenetV1/MobilenetV1/Conv2d_4_pointwise/Conv2D_weights_fused_bn", w46.data(), w46.size());
+  LoadWeight(graph, "MobilenetV1/MobilenetV1/Conv2d_4_pointwise/Conv2D_bias_fused_bn", w47.data(), w47.size());
+  LoadWeight(graph, "MobilenetV1/MobilenetV1/Conv2d_5_depthwise/depthwise_weights_fused_bn", w48.data(), w48.size());
+  LoadWeight(graph, "MobilenetV1/MobilenetV1/Conv2d_5_depthwise/depthwise_bias_fused_bn", w49.data(), w49.size());
+  LoadWeight(graph, "MobilenetV1/MobilenetV1/Conv2d_5_pointwise/Conv2D_weights_fused_bn", w50.data(), w50.size());
+  LoadWeight(graph, "MobilenetV1/MobilenetV1/Conv2d_5_pointwise/Conv2D_bias_fused_bn", w51.data(), w51.size());
+  LoadWeight(graph, "MobilenetV1/MobilenetV1/Conv2d_6_depthwise/depthwise_weights_fused_bn", w52.data(), w52.size());
+  LoadWeight(graph, "MobilenetV1/MobilenetV1/Conv2d_6_depthwise/depthwise_bias_fused_bn", w53.data(), w53.size());
+  LoadWeight(graph, "MobilenetV1/MobilenetV1/Conv2d_6_pointwise/Conv2D_weights_fused_bn", w54.data(), w54.size());
+  LoadWeight(graph, "MobilenetV1/MobilenetV1/Conv2d_6_pointwise/Conv2D_bias_fused_bn", w55.data(), w55.size());
+  LoadWeight(graph, "MobilenetV1/MobilenetV1/Conv2d_7_depthwise/depthwise_weights_fused_bn", w56.data(), w56.size());
+  LoadWeight(graph, "MobilenetV1/MobilenetV1/Conv2d_7_depthwise/depthwise_bias_fused_bn", w57.data(), w57.size());
+  LoadWeight(graph, "MobilenetV1/MobilenetV1/Conv2d_7_pointwise/Conv2D_weights_fused_bn", w58.data(), w58.size());
+  LoadWeight(graph, "MobilenetV1/MobilenetV1/Conv2d_7_pointwise/Conv2D_bias_fused_bn", w59.data(), w59.size());
+  LoadWeight(graph, "MobilenetV1/MobilenetV1/Conv2d_8_depthwise/depthwise_weights_fused_bn", w60.data(), w60.size());
+  LoadWeight(graph, "MobilenetV1/MobilenetV1/Conv2d_8_depthwise/depthwise_bias_fused_bn", w61.data(), w61.size());
+  LoadWeight(graph, "MobilenetV1/MobilenetV1/Conv2d_8_pointwise/Conv2D_weights_fused_bn", w62.data(), w62.size());
+  LoadWeight(graph, "MobilenetV1/MobilenetV1/Conv2d_8_pointwise/Conv2D_bias_fused_bn", w63.data(), w63.size());
+  LoadWeight(graph, "MobilenetV1/MobilenetV1/Conv2d_9_depthwise/depthwise_weights_fused_bn", w64.data(), w64.size());
+  LoadWeight(graph, "MobilenetV1/MobilenetV1/Conv2d_9_depthwise/depthwise_bias_fused_bn", w65.data(), w65.size());
+  LoadWeight(graph, "MobilenetV1/MobilenetV1/Conv2d_9_pointwise/Conv2D_weights_fused_bn", w66.data(), w66.size());
+  LoadWeight(graph, "MobilenetV1/MobilenetV1/Conv2d_9_pointwise/Conv2D_bias_fused_bn", w67.data(), w67.size());
+  LoadWeight(graph, "MobilenetV1/MobilenetV1/Conv2d_10_depthwise/depthwise_weights_fused_bn", w68.data(), w68.size());
+  LoadWeight(graph, "MobilenetV1/MobilenetV1/Conv2d_10_depthwise/depthwise_bias_fused_bn", w69.data(), w69.size());
+  LoadWeight(graph, "MobilenetV1/MobilenetV1/Conv2d_10_pointwise/Conv2D_weights_fused_bn", w70.data(), w70.size());
+  LoadWeight(graph, "MobilenetV1/MobilenetV1/Conv2d_10_pointwise/Conv2D_bias_fused_bn", w71.data(), w71.size());
+  LoadWeight(graph, "MobilenetV1/MobilenetV1/Conv2d_11_depthwise/depthwise_weights_fused_bn", w72.data(), w72.size());
+  LoadWeight(graph, "MobilenetV1/MobilenetV1/Conv2d_11_depthwise/depthwise_bias_fused_bn", w73.data(), w73.size());
+  LoadWeight(graph, "MobilenetV1/MobilenetV1/Conv2d_11_pointwise/Conv2D_weights_fused_bn", w74.data(), w74.size());
+  LoadWeight(graph, "MobilenetV1/MobilenetV1/Conv2d_11_pointwise/Conv2D_bias_fused_bn", w75.data(), w75.size());
+  LoadWeight(graph, "MobilenetV1/MobilenetV1/Conv2d_12_depthwise/depthwise_weights_fused_bn", w76.data(), w76.size());
+  LoadWeight(graph, "MobilenetV1/MobilenetV1/Conv2d_12_depthwise/depthwise_bias_fused_bn", w77.data(), w77.size());
+  LoadWeight(graph, "MobilenetV1/MobilenetV1/Conv2d_12_pointwise/Conv2D_weights_fused_bn", w78.data(), w78.size());
+  LoadWeight(graph, "MobilenetV1/MobilenetV1/Conv2d_12_pointwise/Conv2D_bias_fused_bn", w79.data(), w79.size());
+  LoadWeight(graph, "MobilenetV1/MobilenetV1/Conv2d_13_depthwise/depthwise_weights_fused_bn", w80.data(), w80.size());
+  LoadWeight(graph, "MobilenetV1/MobilenetV1/Conv2d_13_depthwise/depthwise_bias_fused_bn", w81.data(), w81.size());
+  LoadWeight(graph, "MobilenetV1/MobilenetV1/Conv2d_13_pointwise/Conv2D_weights_fused_bn", w82.data(), w82.size());
+  LoadWeight(graph, "MobilenetV1/MobilenetV1/Conv2d_13_pointwise/Conv2D_bias_fused_bn", w83.data(), w83.size());
+  LoadWeight(graph, "MobilenetV1/Logits/Conv2d_1c_1x1/weights/read:0", w84.data(), w84.size());
+  LoadWeight(graph, "MobilenetV1/Logits/Conv2d_1c_1x1/biases/read:0", w85.data(), w85.size());
 
   std::random_device random_device;
   auto rng = std::mt19937(random_device());
@@ -1141,7 +1256,7 @@ int main(int argc, char* argv[]) {
   std::unique_ptr<pthreadpool, decltype(&pthreadpool_destroy)> threadpool(
       pthreadpool_create(num_threads), pthreadpool_destroy);
 
-  ExecutionPlan plan = FP32MobileNetV1(threadpool.get());
+  ExecutionPlan plan = FP32MobileNetV1(threadpool.get(), m);
 
   for (const std::unique_ptr<xnn_operator, decltype(&xnn_delete_operator)>& op : plan) {
     ORT_ENFORCE(xnn_run_operator(op.get(), threadpool.get()) == xnn_status_success);

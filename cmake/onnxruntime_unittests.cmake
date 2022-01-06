@@ -1294,6 +1294,6 @@ if(onnxruntime_USE_XNNPACK)
   onnxruntime_graph
   ${ONNXRUNTIME_MLAS_LIBS}
   onnxruntime_common
-  onnxruntime_flatbuffers XNNPACK pthreadpool ${onnxruntime_EXTERNAL_LIBRARIES})
+  onnxruntime_flatbuffers ${onnxruntime_EXTERNAL_LIBRARIES})
     set_target_properties(onnxruntime_xnnpack_test PROPERTIES FOLDER "ONNXRuntimeTest")
 endif()
