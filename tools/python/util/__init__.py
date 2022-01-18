@@ -3,7 +3,7 @@
 
 from .get_azcopy import get_azcopy
 from .logger import get_logger
-from .platform import (is_windows, is_macOS, is_linux)
+from .platform_helpers import (is_windows, is_macOS, is_linux)
 from .run import run
 
 try:

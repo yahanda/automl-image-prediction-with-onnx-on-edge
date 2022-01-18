@@ -8,6 +8,11 @@ import torchvision
 
 from collections import deque
 
+# use a hash of the object id for NodeProto.
+# we need this for the partitioning checker where we keep maps with nodes as the key.
+onnx.NodeProto.__hash__ = lambda self: id(self)
+
+# setup logging
 FUNC_NAME_WIDTH = 24
 FORMAT = '%(funcName)' + str(FUNC_NAME_WIDTH) + 's %(message)s'
 logging.basicConfig(format=FORMAT)
@@ -505,17 +510,18 @@ def test_run():
         print(categories[top5_catid[i]], top5_prob[i].item())
 
 
-# download_data()
-# test_run()
+def run_helpers():
+    # download_data()
+    # test_run()
 
-# use a hash of the object id for NodeProto.
-# we need this for the partitioning checker where we keep maps with nodes as the key.
-onnx.NodeProto.__hash__ = lambda self: id(self)
 
-logger.setLevel(logging.DEBUG)
+    logger.setLevel(logging.DEBUG)
 
-checker(r'D:\MobileBuildPackageModels\Converted\IndividualModels\resnet50_v1\resnet50_v1.onnx')
-# checker(r'C:\Users\scmckay\Downloads\mlperf_models_202103\mobile\mobilenet_edgetpu\mobilenet_edgetpu_224_1.0_float.onnx')
-# checker(r'C:\Users\scmckay\Downloads\mlperf_models_202103\mobile\mobilenet_edgetpu\mobilenet_edgetpu_224_1.0_float-int8.onnx')
-# checker(r'C:\Users\scmckay\Downloads\mlperf_models_202103\mobile\mobilenet_edgetpu\mobilenet_edgetpu_224_1.0-qdq.onnx')
+    checker(r'D:\MobileBuildPackageModels\Converted\IndividualModels\resnet50_v1\resnet50_v1.onnx')
+    # checker(r'C:\Users\scmckay\Downloads\mlperf_models_202103\mobile\mobilenet_edgetpu\mobilenet_edgetpu_224_1.0_float.onnx')
+    # checker(r'C:\Users\scmckay\Downloads\mlperf_models_202103\mobile\mobilenet_edgetpu\mobilenet_edgetpu_224_1.0_float-int8.onnx')
+    # checker(r'C:\Users\scmckay\Downloads\mlperf_models_202103\mobile\mobilenet_edgetpu\mobilenet_edgetpu_224_1.0-qdq.onnx')
 
+
+if __name__ == '__main__':
+    run_helpers()
