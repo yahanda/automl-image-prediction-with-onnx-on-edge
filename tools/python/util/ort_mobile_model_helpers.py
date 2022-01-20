@@ -1,6 +1,8 @@
+import argparse
 import logging
 import onnx
 import onnx.shape_inference
+import onnxruntime as ort
 import os
 import pathlib
 import torch
@@ -37,13 +39,13 @@ def update_onnx_opset(model_path, opset):
     logger.info("Saved updated model to %s", model_path)
 
 
-def map_node_dependencies(model):
+def map_node_dependencies(graph: onnx.GraphProto):
     # initializers = set()
     producers = {}  # map of value to node that creates it.
     node_to_producers = {}  # map of node instance to nodes producing input values it consumes
     node_to_consumers = {}  # map of node instance to nodes consuming output values it produces
 
-    for node in model.graph.node:
+    for node in graph.node:
         # TODO add support for subgraphs by recursing into Graph attribute
         # Neither NNAPI or CoreML EPs support currently so ignore for now
         # for attr in node.attribute:
@@ -136,7 +138,7 @@ def is_fixed_size_tensor(value: onnx.ValueInfoProto):
     return is_fixed
 
 
-def check_partitioning(model: onnx.ModelProto, supported_ops_checker: SupportedOpsChecker, ep_name: str,
+def check_partitioning(graph: onnx.GraphProto, supported_ops_checker: SupportedOpsChecker, ep_name: str,
                        require_fixed_input_sizes: bool = False, value_info=None):
     '''
     Estimate the partitions the graph will be split into for nodes that is_node_supported_fn returns true for.
@@ -144,7 +146,7 @@ def check_partitioning(model: onnx.ModelProto, supported_ops_checker: SupportedO
     The check on whether a node is supported is purely based on the operator type. Additional limitations
     (e.g. NNAPI EP only supports 2D Conv) are not checked, so partitions may not be 100% accurate. The limitations
     for operators in the partitions are printed so the user can manually check.
-    :param model: Model to process
+    :param graph: Graph to process
     :param supported_ops_checker: Checker with info on supported ops.
     :param require_fixed_input_sizes: If True, require that the inputs to a potentially supported node are
                                        fixed size tensors for it to be considered as supported.
@@ -157,7 +159,7 @@ def check_partitioning(model: onnx.ModelProto, supported_ops_checker: SupportedO
     if require_fixed_input_sizes and not value_info:
         raise ValueError("value_info must be provided if require_fixed_input_sizes is True.")
 
-    node_to_producers, node_to_consumers = map_node_dependencies(model)
+    node_to_producers, node_to_consumers = map_node_dependencies(graph)
 
     #
     # Replicate logic from /onnxruntime/core/providers/partitioning_utils.cc:CreateSupportedPartitionNodeGroups
@@ -176,7 +178,7 @@ def check_partitioning(model: onnx.ModelProto, supported_ops_checker: SupportedO
     nodes_to_process_with_next_group = deque()
 
     # initialize in-degrees and find root nodes
-    for node in model.graph.node:
+    for node in graph.node:
         node_input_edge_count = len(node_to_producers[node]) if node in node_to_producers else 0
         in_degree[node] = node_input_edge_count
         if node_input_edge_count == 0:
@@ -255,7 +257,7 @@ def check_partitioning(model: onnx.ModelProto, supported_ops_checker: SupportedO
 
     close_group()
 
-    num_nodes = len(model.graph.node)
+    num_nodes = len(graph.node)
     num_partitions = len(supported_groups)
     logger.info(f'{num_partitions} partitions with a total of {num_supported_nodes}/{num_nodes} '
                 'nodes can be handled by this EP.')
@@ -294,10 +296,10 @@ def check_partitioning(model: onnx.ModelProto, supported_ops_checker: SupportedO
                     "result in poor performance.")
 
 
-def replace_symbolic_dim_value(graph, **kwargs):
+def replace_symbolic_dim_value(graph: onnx.GraphProto, **kwargs):
     '''
-    Iterate all values in the model, replacing dim_param in a tensor shape with the provided value.
-    :param model: ModelProto to update
+    Iterate all values in the graph, replacing dim_param in a tensor shape with the provided value.
+    :param graph: GraphProto to update
     :param dim_param: dim_param to set
     :param value: value to use
     '''
@@ -345,7 +347,13 @@ def iterate_graph_per_graph_func(graph, per_graph_func, **func_args):
 def check_nnapi_partitions(model, value_info=None):
     logger.info(f'Checking NNAPI EP partitions...')
     supported_ops = SupportedOpsChecker(r'D:\src\github\ort\tools\ci_build\github\android\nnapi_supported_ops.md')
-    check_partitioning(model, supported_ops, "NNAPI", value_info is not None, value_info)
+    check_partitioning(model.graph, supported_ops, "NNAPI", value_info is not None, value_info)
+
+    for node in model.graph.node:
+        # recurse into subgraph for control flow nodes (Scan/Loop/If)
+        for attr in node.attribute:
+            if attr.HasField('g'):
+                check_partitioning(attr.g, supported_ops, "NNAPI", value_info is not None, value_info)
 
 
 def check_coreml_partitions(model, value_info=None):
@@ -514,7 +522,6 @@ def run_helpers():
     # download_data()
     # test_run()
 
-
     logger.setLevel(logging.DEBUG)
 
     checker(r'D:\MobileBuildPackageModels\Converted\IndividualModels\resnet50_v1\resnet50_v1.onnx')
@@ -523,5 +530,54 @@ def run_helpers():
     # checker(r'C:\Users\scmckay\Downloads\mlperf_models_202103\mobile\mobilenet_edgetpu\mobilenet_edgetpu_224_1.0-qdq.onnx')
 
 
+def optimize_model(model_path: pathlib.Path):
+
+    optimized_path = model_path.with_suffix(f'.optimized.onnx')
+
+    so = ort.SessionOptions()
+    so.optimized_model_filepath = str(optimized_path)
+    so.graph_optimization_level = ort.GraphOptimizationLevel.ORT_ENABLE_BASIC
+
+    # create session to optimize
+    _ = ort.InferenceSession(str(model_path), so)
+
+    return optimized_path
+
+
+def parse_args():
+    parser = argparse.ArgumentParser(
+        os.path.basename(__file__),
+        description='''Analyze an ONNX model for usage with the ORT mobile'''
+    )
+
+    parser.add_argument('--log_level', choices=['debug', 'info', 'warning', 'error'],
+                        default='info', help='Logging level')
+
+    parser.add_argument('--optimize', action='store_true',
+                        help='Optimize the model using ONNX Runtime before analyzing.')
+    parser.add_argument('model_path', type=pathlib.Path, help='Provide path to ONNX model')
+
+    return parser.parse_args()
+
+
+def analyze_model():
+    args = parse_args()
+
+    model_path = args.model_path.resolve()
+    if args.log_level == 'debug':
+        logger.setLevel(logging.DEBUG)
+    elif args.log_level == 'info':
+        logger.setLevel(logging.INFO)
+    elif args.log_level == 'warning':
+        logger.setLevel(logging.warning)
+    else:
+        logger.setLevel(logging.ERROR)
+
+    if args.optimize:
+        model_path = optimize_model(model_path)
+
+    checker(str(model_path))
+
+
 if __name__ == '__main__':
-    run_helpers()
+    analyze_model()
