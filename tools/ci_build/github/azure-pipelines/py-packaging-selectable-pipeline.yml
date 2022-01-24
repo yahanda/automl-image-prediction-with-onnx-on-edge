@@ -11,6 +11,7 @@ parameters:
 
 - name: python_version
   displayName: 'Python version used for build'
+  type: object
   default: ['3.6','3.7']
 
 trigger: none
