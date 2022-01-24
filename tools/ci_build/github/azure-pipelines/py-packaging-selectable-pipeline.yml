@@ -12,7 +12,13 @@ parameters:
 - name: python_version
   displayName: 'Python version used for build'
   type: object
-  default: ['3.6','3.7']
+  default: ['3.6','3.7', '3.8', '3.9']
+
+- name: build_py_parameters
+  displayName: >
+    Extra parameters to pass to build.py. Don't put newlines in here.
+  type: string
+  default: ''
 
 trigger: none
 
@@ -82,12 +88,9 @@ stages:
             --enable_lto
             --build_dir $(Build.BinariesDirectory)
             --skip_submodule_sync
-            --use_dnnl
-            --use_openvino CPU_FP32 
             --cmake_generator "Visual Studio 16 2019"
             --enable_pybind
             --enable_onnx_tests
-            --skip_tests
             ${{ parameters.build_py_parameters }}
             --parallel --update
             $(TelemetryOption)
