@@ -1,10 +1,10 @@
-FROM ubuntu:20.04
+ARG PYTHON_VERSION=3.8
+FROM python:$PYTHON_VERSION
 
 ARG OPENVINO_VERSION=2021.4
-ARG PYTHON_VERSION=3.8
 
 ADD scripts /tmp/scripts
-RUN /tmp/scripts/install_ubuntu.sh -p ${PYTHON_VERSION} -d EdgeDevice && \
+RUN /tmp/scripts/install_ubuntu.sh -d EdgeDevice && \
     /tmp/scripts/install_os_deps.sh -d EdgeDevice && \
     /tmp/scripts/install_python_deps.sh -p ${PYTHON_VERSION} -d EdgeDevice
 
