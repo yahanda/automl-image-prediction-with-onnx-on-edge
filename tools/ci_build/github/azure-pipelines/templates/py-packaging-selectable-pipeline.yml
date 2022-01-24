@@ -41,13 +41,11 @@ stages:
         clean: true
         submodules: recursive
 
-      - template: set-python-manylinux-variables-step.yml
-
       - template: get-docker-image-steps.yml
         parameters:
           Dockerfile: tools/ci_build/github/linux/docker/Dockerfile.ubuntu_openvino
           Context: tools/ci_build/github/linux/docker
-          DockerBuildArgs: "--build-arg BUILD_UID=$( id -u )"
+          DockerBuildArgs: "--build-arg PYTHON_VERSION=variables['PythonVersion']"
           Repository: onnxruntimecpubuild
 
       - task: CmdLine@2
@@ -64,7 +62,7 @@ stages:
               -e NIGHTLY_BUILD \
               -e BUILD_BUILDNUMBER \
               onnxruntimecpubuild \
-                $(PythonManylinuxDir)/bin/python3 /onnxruntime_src/tools/ci_build/build.py \
+                python /onnxruntime_src/tools/ci_build/build.py \
                   --build_dir /build --cmake_generator Ninja \
                   --config Release --update --build \
                   --skip_submodule_sync \
@@ -84,18 +82,18 @@ stages:
             rm -rf $(Build.BinariesDirectory)/Release/onnxruntime $(Build.BinariesDirectory)/Release/pybind11
             sudo rm -f /build /onnxruntime_src
             sudo ln -s $(Build.SourcesDirectory) /onnxruntime_src
-            python3 -m pip uninstall -y ort-nightly-gpu ort-nightly onnxruntime onnxruntime-gpu -qq
+            python -m pip uninstall -y ort-nightly-gpu ort-nightly onnxruntime onnxruntime-gpu -qq
             cp $(Build.SourcesDirectory)/tools/ci_build/github/linux/docker/scripts/manylinux/requirements.txt $(Build.BinariesDirectory)/requirements.txt
             # Test ORT with the latest ONNX release.
             export ONNX_VERSION=$(cat $(Build.SourcesDirectory)/cmake/external/onnx/VERSION_NUMBER)
             sed -i "s/git+http:\/\/github\.com\/onnx\/onnx.*/onnx==$ONNX_VERSION/" $(Build.BinariesDirectory)/requirements.txt
-            python3 -m pip install -r $(Build.BinariesDirectory)/requirements.txt
-            python3 -m pip install $(Build.BinariesDirectory)/Release/dist/*.whl
+            python -m pip install -r $(Build.BinariesDirectory)/requirements.txt
+            python -m pip install $(Build.BinariesDirectory)/Release/dist/*.whl
             cd $(Build.BinariesDirectory)/Release
             ls $(Build.BinariesDirectory)/models
             rmdir $(Build.BinariesDirectory)/models
             ln -sf /data/models $(Build.BinariesDirectory)
-            python3 $(Build.SourcesDirectory)/tools/ci_build/build.py \
+            python $(Build.SourcesDirectory)/tools/ci_build/build.py \
                   --build_dir $(Build.BinariesDirectory) --cmake_generator Ninja \
                   --config Release --test \
                   --skip_submodule_sync \
@@ -128,7 +126,7 @@ stages:
               -e NIGHTLY_BUILD \
               -e BUILD_BUILDNUMBER \
               onnxruntimecpubuild \
-                bash -c " $(PythonManylinuxDir)/bin/python3 -m pip install /build/Release/dist/*.whl && $(PythonManylinuxDir)/bin/python3 -m onnxruntime.training.ortmodule.torch_cpp_extensions.install ; /onnxruntime_src/tools/doc/builddoc.sh $(PythonManylinuxDir)/bin/ /onnxruntime_src /build Release " ;
+                bash -c " python -m pip install /build/Release/dist/*.whl && python -m onnxruntime.training.ortmodule.torch_cpp_extensions.install ; /onnxruntime_src/tools/doc/builddoc.sh $(PythonManylinuxDir)/bin/ /onnxruntime_src /build Release " ;
           workingDirectory: $(Build.SourcesDirectory)
 
       - task: CopyFiles@2
@@ -194,15 +192,17 @@ stages:
           python -m pip install -q setuptools wheel numpy==1.16.6
         workingDirectory: '$(Build.BinariesDirectory)'
         displayName: 'Install python modules'
+
       - powershell: |
           $Env:USE_MSVC_STATIC_RUNTIME=1
           $Env:ONNX_ML=1
           $Env:CMAKE_ARGS="-DONNX_USE_PROTOBUF_SHARED_LIBS=OFF -DProtobuf_USE_STATIC_LIBS=ON -DONNX_USE_LITE_PROTO=ON -DCMAKE_TOOLCHAIN_FILE=C:/vcpkg/scripts/buildsystems/vcpkg.cmake -DVCPKG_TARGET_TRIPLET=x64-windows-static"
           python setup.py bdist_wheel
           python -m pip uninstall -y onnx -qq
-          Get-ChildItem -Path dist/*.whl | foreach {pip --disable-pip-version-check install --upgrade $_.fullname}
+          Get-ChildItem -Path dist/*.whl | foreach {pip --disable-pip-version-check install --force-reinstall --upgrade $_.fullname}
         workingDirectory: '$(Build.SourcesDirectory)\cmake\external\onnx'
         displayName: 'Install ONNX'
+
       - task: PythonScript@0
         displayName: 'Generate cmake config'
         inputs:
@@ -254,7 +254,7 @@ stages:
           TargetFolder: '$(Build.ArtifactStagingDirectory)'
 
       - task: PublishBuildArtifacts@1
-        displayName: 'Publish Artifact: OLive ONNXRuntime python wheel'
+        displayName: 'Publish Artifact: ONNXRuntime python wheel'
         inputs:
           ArtifactName: onnxruntime
 
@@ -283,13 +283,15 @@ stages:
             **/*.obj
             **/*.pdb
             **/*.dll
+
       - powershell: |
          python -m pip uninstall -y ort-nightly-gpu ort-nightly onnxruntime onnxruntime-gpu -qq
-         Get-ChildItem -Path $(Build.ArtifactStagingDirectory)/*.whl | foreach {pip --disable-pip-version-check install --upgrade $_.fullname tabulate}
+         Get-ChildItem -Path $(Build.ArtifactStagingDirectory)/*.whl | foreach {pip --force-reinstall --disable-pip-version-check install --upgrade $_.fullname tabulate}
          Remove-Item -Recurse -Force onnxruntime
          python onnx_backend_test_series.py
         workingDirectory: '$(Build.BinariesDirectory)\$(BuildConfig)\$(BuildConfig)'
         displayName: 'Run Python Tests'
+
       #Skip it for 32 bits x86 build. Currently the scan tool has a bug: it doesn't allow me use 64 bits link.exe
       #in 32 bits Win32 build. I tried all the settings but they all don't work.
       - task: SDLNativeRules@3
