@@ -17,7 +17,7 @@ parameters:
 - name: build_py_parameters
   displayName: 'Extra parameters to pass to build.py.'
   type: string
-  default: ''
+  default: ' '
 
 trigger: none
 
