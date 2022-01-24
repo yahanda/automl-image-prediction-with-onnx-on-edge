@@ -11,6 +11,7 @@
 #include <torch/csrc/jit/passes/onnx.h>
 #include <ATen/core/functional.h>
 #include "core/framework/session_options.h"
+#include "orttraining/core/session/training_session.h"
 #include "core/session/environment.h"
 #include "core/session/inference_session.h"
 #include "core/common/logging/sinks/clog_sink.h"
@@ -332,7 +333,7 @@ bool Accelerator::supported(const torch::jit::Node* node) {
     //case aten::gt:
     //case aten::eq:
     case prim::Constant:
-    //case aten::threshold_backward:
+    case aten::threshold_backward:
       std::cout << "[compiler.cc] Support " << *node;  //<< std::endl;
       return true;
     default:
@@ -455,7 +456,9 @@ CompiledCode Accelerator::compile(
   auto compiled_func = [this, model_path](at::ArrayRef<c10::IValue>& inputs) {
     onnxruntime::Environment& pybind_default_env = GetLtcEnv();
     onnxruntime::SessionOptions sess_opts;
-    onnxruntime::InferenceSession sess(sess_opts, pybind_default_env);
+
+    onnxruntime::training::TrainingSession sess(sess_opts, pybind_default_env);
+    //onnxruntime::InferenceSession sess(sess_opts, pybind_default_env);
     ORT_THROW_IF_ERROR(sess.Load(model_path));
     ORT_THROW_IF_ERROR(sess.Initialize());
 
