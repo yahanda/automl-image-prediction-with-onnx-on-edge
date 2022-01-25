@@ -35,7 +35,8 @@ jobs:
   #  displayName: 'Toggle ON deterministic compute mode for ORTModule'
   
   - script: |-
-      bash ./tools/ci_build/github/pai/pai_get_thread.sh variables['Agent.Name']
+      echo $(Agent.Name)
+      bash ./tools/ci_build/github/pai/pai_get_thread.sh $(Agent.Name)
     displayName: 'Check Variable'
 
   - script: |-
