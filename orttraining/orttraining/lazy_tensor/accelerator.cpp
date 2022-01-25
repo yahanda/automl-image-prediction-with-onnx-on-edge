@@ -332,8 +332,11 @@ OrtValue create_2() {
 
 bool Accelerator::supported(const torch::jit::Node* node) {
   switch (node->kind()) {
-    case aten::relu:
+    //case aten::relu:
     case aten::mul:
+    case aten::add:
+    case aten::sub:
+    case aten::div:
     //case aten::gt:
     //case aten::eq:
     case prim::Constant:
