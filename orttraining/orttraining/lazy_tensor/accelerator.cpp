@@ -228,7 +228,11 @@ at::Tensor create_at_tensor(const onnxruntime::Tensor& tensor) {
     .device(create_torch_device_type(device.Type()), create_torch_device_index(device.Type()))
     .requires_grad(false);
 
-  at::Tensor new_tensor = torch::empty(tensor.Shape().GetDimsAsVector(), options);
+
+  const auto num_dims = tensor.Shape().NumDimensions();
+  std::vector<int64_t> shape(num_dims);
+  tensor.Shape().CopyDims(shape.data(), num_dims);
+  at::Tensor new_tensor = torch::empty(shape, options);
 
   switch (device.Type()) {
     case OrtDevice::CPU:
