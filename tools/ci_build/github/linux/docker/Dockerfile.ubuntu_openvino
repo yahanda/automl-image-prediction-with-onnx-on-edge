@@ -2,8 +2,18 @@ FROM quay.io/pypa/manylinux2014_x86_64:latest
 
 ENV PATH /usr/local/gradle/bin:/opt/rh/devtoolset-10/root/usr/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
 
+ARG PYTHON_VERSION=3.8
+
 ADD scripts /tmp/scripts
-RUN cd /tmp/scripts && /tmp/scripts/manylinux/install_centos.sh && /tmp/scripts/manylinux/install_deps.sh && rm -rf /tmp/scripts
+RUN cd /tmp/scripts && \
+    /tmp/scripts/manylinux/install_centos.sh && \
+    /tmp/scripts/manylinux/install_deps.sh && \
+    /tmp/scripts/install_ubuntu.sh -d EdgeDevice && \
+    /tmp/scripts/install_os_deps.sh -d EdgeDevice && \
+    /tmp/scripts/install_python_deps.sh -p ${PYTHON_VERSION} -d EdgeDevice
+
+RUN apt update && apt install -y libnuma1 ocl-icd-libopencl1 && \
+    rm -rf /var/lib/apt/lists/* /tmp/scripts
 
 ARG BUILD_UID=1001
 ARG BUILD_USER=onnxruntimedev
