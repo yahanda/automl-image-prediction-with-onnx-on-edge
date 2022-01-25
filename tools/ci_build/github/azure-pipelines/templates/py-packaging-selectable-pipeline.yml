@@ -41,11 +41,13 @@ stages:
         clean: true
         submodules: recursive
 
+      - template: set-python-manylinux-variables-step.yml
+
       - template: get-docker-image-steps.yml
         parameters:
           Dockerfile: tools/ci_build/github/linux/docker/Dockerfile.ubuntu_openvino
           Context: tools/ci_build/github/linux/docker
-          DockerBuildArgs: "--build-arg PYTHON_VERSION=$(PythonVersion)"
+          DockerBuildArgs: "--build-arg BUILD_UID=$( id -u )"
           Repository: onnxruntimecpubuild
 
       - task: CmdLine@2
@@ -62,7 +64,7 @@ stages:
               -e NIGHTLY_BUILD \
               -e BUILD_BUILDNUMBER \
               onnxruntimecpubuild \
-                python3 /onnxruntime_src/tools/ci_build/build.py \
+                $(PythonManylinuxDir)/bin/python3 /onnxruntime_src/tools/ci_build/build.py \
                   --build_dir /build --cmake_generator Ninja \
                   --config Release --update --build \
                   --skip_submodule_sync \
@@ -126,7 +128,7 @@ stages:
               -e NIGHTLY_BUILD \
               -e BUILD_BUILDNUMBER \
               onnxruntimecpubuild \
-                bash -c " python3 -m pip install /build/Release/dist/*.whl && python3 -m onnxruntime.training.ortmodule.torch_cpp_extensions.install ; /onnxruntime_src/tools/doc/builddoc.sh $(PythonManylinuxDir)/bin/ /onnxruntime_src /build Release " ;
+                bash -c " $(PythonManylinuxDir)/bin/python3 -m pip install /build/Release/dist/*.whl && $(PythonManylinuxDir)/bin/python3 -m onnxruntime.training.ortmodule.torch_cpp_extensions.install ; /onnxruntime_src/tools/doc/builddoc.sh $(PythonManylinuxDir)/bin/ /onnxruntime_src /build Release " ;
           workingDirectory: $(Build.SourcesDirectory)
 
       - task: CopyFiles@2

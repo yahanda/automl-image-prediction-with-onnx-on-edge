@@ -1,17 +1,17 @@
-FROM ubuntu:20.04
+FROM quay.io/pypa/manylinux2014_x86_64:latest
 
-ARG OPENVINO_VERSION=2021.4
-ARG PYTHON_VERSION=3.8
+ENV PATH /usr/local/gradle/bin:/opt/rh/devtoolset-10/root/usr/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
 
 ADD scripts /tmp/scripts
-RUN /tmp/scripts/install_ubuntu.sh -p ${PYTHON_VERSION} -d EdgeDevice && \
-    /tmp/scripts/install_os_deps.sh -d EdgeDevice && \
-    /tmp/scripts/install_python_deps.sh -p ${PYTHON_VERSION} -d EdgeDevice
+RUN cd /tmp/scripts && /tmp/scripts/manylinux/install_centos.sh && /tmp/scripts/manylinux/install_deps.sh && rm -rf /tmp/scripts
 
-RUN apt update && apt install -y libnuma1 ocl-icd-libopencl1 && \
-    rm -rf /var/lib/apt/lists/* /tmp/scripts
+ARG BUILD_UID=1001
+ARG BUILD_USER=onnxruntimedev
+RUN adduser --uid $BUILD_UID $BUILD_USER
+WORKDIR /home/$BUILD_USER
+USER $BUILD_USER
 
-WORKDIR /root
+ARG OPENVINO_VERSION=2021.4
 
 ENV INTEL_OPENVINO_DIR /opt/intel/openvino_${OPENVINO_VERSION}.752
 ENV LD_LIBRARY_PATH $INTEL_OPENVINO_DIR/deployment_tools/inference_engine/lib/intel64:$INTEL_OPENVINO_DIR/deployment_tools/ngraph/lib:$INTEL_OPENVINO_DIR/deployment_tools/inference_engine/external/tbb/lib:/usr/local/openblas/lib:$LD_LIBRARY_PATH
@@ -41,10 +41,3 @@ RUN mkdir -p /opt/cmake/bin && \
     wget https://github.com/Kitware/CMake/releases/download/v3.21.0/cmake-3.21.0-linux-x86_64.tar.gz && \
     tar -xf cmake-3.21.0-linux-x86_64.tar.gz --strip 1 -C /opt/cmake && rm -rf /cmake-3.21.0-linux-x86_64.tar.gz && \
     ln -sf /opt/cmake/bin/* /usr/bin
-
-ARG BUILD_UID=1000
-ARG BUILD_USER=onnxruntimedev
-WORKDIR /home/$BUILD_USER
-RUN adduser --gecos 'onnxruntime Build User' --disabled-password $BUILD_USER --uid $BUILD_UID
-RUN adduser $BUILD_USER video
-USER $BUILD_USER
