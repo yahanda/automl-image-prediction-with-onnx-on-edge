@@ -1,4 +1,5 @@
 import argparse
+import inspect
 import logging
 import onnx
 import onnx.shape_inference
@@ -8,6 +9,7 @@ import pathlib
 import torch
 import torchvision
 
+from collections import abc
 from collections import deque
 
 # use a hash of the object id for NodeProto.
@@ -347,6 +349,7 @@ def iterate_graph_per_graph_func(graph, per_graph_func, **func_args):
 def check_nnapi_partitions(model, value_info=None):
     logger.info(f'Checking NNAPI EP partitions...')
     supported_ops = SupportedOpsChecker(r'D:\src\github\ort\tools\ci_build\github\android\nnapi_supported_ops.md')
+
     check_partitioning(model.graph, supported_ops, "NNAPI", value_info is not None, value_info)
 
     for node in model.graph.node:
@@ -451,7 +454,147 @@ def get_model():
     return qmodel
 
 
-def run_with_pt(model, image_filename):
+class _PrimitiveType(object):
+    _primitive_types = {int, bool, float}
+
+    @staticmethod
+    def is_primitive_type(value):
+        return type(value) in _PrimitiveType._primitive_types
+
+    @staticmethod
+    def to_tensor(value):
+        return torch.tensor(value)
+
+    @staticmethod
+    def get_primitive_dtype(value):
+        # If `value` is a boolean, save the value of the boolean in dtype.
+        # This way, if the value changes from one forward call to the next, the schema will mismatch,
+        # and the model will be re-exported.
+        return f"{str(type(value))}_{value}" if isinstance(value, bool) else str(type(value))
+
+
+def parse_inputs_for_onnx_export(all_input_parameters, inputs, kwargs):
+
+    def _add_input(name, input):
+        """Returns number of expanded non none inputs that _add_input processed"""
+
+        if input is None:
+            # Drop all None inputs and return 0.
+            return 0
+
+        num_expanded_non_none_inputs = 0
+        if isinstance(input, abc.Sequence):
+            # If the input is a sequence (like a list), expand the list so that
+            # each element of the list is an input by itself.
+            for i, val in enumerate(input):
+                # Name each input with the index appended to the original name of the
+                # argument.
+                num_expanded_non_none_inputs += _add_input(f"{name}_{i}", val)
+
+            # Return here since the list by itself is not a valid input.
+            # All the elements of the list have already been added as inputs individually.
+            return num_expanded_non_none_inputs
+        elif isinstance(input, abc.Mapping):
+            # If the input is a mapping (like a dict), expand the dict so that
+            # each element of the dict is an input by itself.
+            for key, val in input.items():
+                num_expanded_non_none_inputs += _add_input(f"{name}_{key}", val)
+
+            # Return here since the dict by itself is not a valid input.
+            # All the elements of the dict have already been added as inputs individually.
+            return num_expanded_non_none_inputs
+
+        # InputInfo should contain all the names irrespective of whether they are
+        # a part of the onnx graph or not.
+        input_names.append(name)
+
+        # A single input non none input was processed, return 1
+        return 1
+
+    input_names = []
+    var_positional_idx = 0
+    num_expanded_non_none_positional_inputs = 0
+
+    for input_idx, input_parameter in enumerate(all_input_parameters):
+        if input_parameter.kind == inspect.Parameter.VAR_POSITIONAL:
+            # VAR_POSITIONAL parameter carries all *args parameters from original forward method
+            for args_i in range(input_idx, len(inputs)):
+                name = f'{input_parameter.name}_{var_positional_idx}'
+                var_positional_idx += 1
+                inp = inputs[args_i]
+                num_expanded_non_none_positional_inputs += _add_input(name, inp)
+        elif input_parameter.kind == inspect.Parameter.POSITIONAL_ONLY or \
+                input_parameter.kind == inspect.Parameter.POSITIONAL_OR_KEYWORD or \
+                input_parameter.kind == inspect.Parameter.KEYWORD_ONLY:
+            # All positional non-*args and non-**kwargs are processed here
+            name = input_parameter.name
+            inp = None
+            input_idx += var_positional_idx
+            is_positional = True
+            if input_idx < len(inputs) and inputs[input_idx] is not None:
+                inp = inputs[input_idx]
+            elif name in kwargs and kwargs[name] is not None:
+                inp = kwargs[name]
+                is_positional = False
+            num_expanded_non_none_inputs_local = _add_input(name, inp)
+            if is_positional:
+                num_expanded_non_none_positional_inputs += num_expanded_non_none_inputs_local
+        elif input_parameter.kind == inspect.Parameter.VAR_KEYWORD:
+            # **kwargs is always the last argument of forward()
+            for name, inp in kwargs.items():
+                if name not in input_names:
+                    _add_input(name, inp)
+
+    return input_names
+
+
+def flatten_module_input(names, args, kwargs):
+    '''Flatten args and kwargs in a single tuple of tensors.'''
+
+    ret = [_PrimitiveType.to_tensor(arg) if _PrimitiveType.is_primitive_type(arg) else arg for arg in args]
+    ret += [_PrimitiveType.to_tensor(kwargs[name])
+            if _PrimitiveType.is_primitive_type(kwargs[name])
+            else kwargs[name] for name in names if name in kwargs]
+
+    # if kwargs is empty, append an empty dictionary at the end of the sample inputs to make exporter
+    # happy. This is because the exporter is confused with kwargs and dictionary inputs otherwise.
+    if not kwargs:
+        ret.append({})
+
+    return tuple(ret)
+
+
+def infer_input_info(module: torch.nn.Module, *inputs, **kwargs):
+    # TODO: Move this to earlier on
+    device = torch.device('cpu')
+    module.to(device)
+
+    module_parameters = inspect.signature(module.forward).parameters.values()
+    input_names = parse_inputs_for_onnx_export(module_parameters, inputs, kwargs)
+    inputs_as_tuple = flatten_module_input(input_names, inputs, kwargs)
+
+    return input_names, inputs_as_tuple
+
+
+def export_module(module: torch.nn.Module, inputs: tuple, input_names, output_names, filename):
+    # TODO: Move this to earlier on
+    device = torch.device('cpu')
+    module.to(device)
+
+    torch.onnx.export(module,
+                      inputs,
+                      filename,
+                      input_names=input_names,
+                      output_names=output_names,
+                      opset_version=13,  # TODO SM: How configurable should this be?
+                      do_constant_folding=False,
+                      training=False,
+                      # dynamic_axes=self._input_info.dynamic_axes,
+                      #verbose=self._debug_output,  # self._debug_options.logging.log_level < LogLevel.WARNING,
+                      export_params=True,
+                      keep_initializers_as_inputs=False)
+
+def load_and_preprocess_image(image_filename):
     from PIL import Image
     from torchvision import transforms
     input_image = Image.open(image_filename)
@@ -463,13 +606,17 @@ def run_with_pt(model, image_filename):
     ])
     input_tensor = preprocess(input_image)
     input_batch = input_tensor.unsqueeze(0)  # create a mini-batch as expected by the model
+    return input_batch
 
+
+def run_with_pt(model, input_batch):
     # move the input and model to GPU for speed if available
     if torch.cuda.is_available():
         input_batch = input_batch.to('cuda')
         model.to('cuda')
 
     with torch.no_grad():
+        # test execution
         output = model(input_batch)
 
         torch.onnx.export(model, input_batch, 'mobilenet_v3_large_quant.onnx',
@@ -510,6 +657,12 @@ def test_run():
     with open("imagenet_classes.txt", "r") as f:
         categories = [s.strip() for s in f.readlines()]
 
+    # load image, preprocess, create batch with single input
+    input_batch = load_and_preprocess_image(image)
+
+    input_names, inputs = infer_input_info(qmodel, input_batch)
+    export_module(qmodel, inputs, input_names, ['scores'], 'mobilenet_v3_large.q.onnx')
+
     probabilities = run_with_pt(qmodel, image)
 
     # Show top categories per image
@@ -519,8 +672,8 @@ def test_run():
 
 
 def run_helpers():
-    # download_data()
-    # test_run()
+    download_data()
+    test_run()
 
     logger.setLevel(logging.DEBUG)
 
@@ -530,7 +683,8 @@ def run_helpers():
     # checker(r'C:\Users\scmckay\Downloads\mlperf_models_202103\mobile\mobilenet_edgetpu\mobilenet_edgetpu_224_1.0-qdq.onnx')
 
 
-def optimize_model(model_path: pathlib.Path):
+def optimize_model(model_path: pathlib.Path,
+                   level: ort.GraphOptimizationLevel = ort.GraphOptimizationLevel.ORT_ENABLE_BASIC):
 
     optimized_path = model_path.with_suffix(f'.optimized.onnx')
 
@@ -576,6 +730,7 @@ def analyze_model():
     if args.optimize:
         model_path = optimize_model(model_path)
 
+    run_helpers()
     checker(str(model_path))
 
 
