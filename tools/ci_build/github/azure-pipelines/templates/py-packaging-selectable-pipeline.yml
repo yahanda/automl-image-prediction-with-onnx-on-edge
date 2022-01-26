@@ -70,72 +70,17 @@ stages:
                   --enable_lto \
                   --build_wheel \
                   --enable_onnx_tests \
+                  --test \
+                  --ctest_path '' \
                   ${{ parameters.build_py_parameters }}
           workingDirectory: $(Build.SourcesDirectory)
-
-      - task: CmdLine@2
-        displayName: 'Running tests'
-        condition: and(succeeded(), eq(variables['PythonVersion'], '3.8'))
-        inputs:
-          script: |
-            set -e -x
-            rm -rf $(Build.BinariesDirectory)/Release/onnxruntime $(Build.BinariesDirectory)/Release/pybind11
-            sudo rm -f /build /onnxruntime_src
-            sudo ln -s $(Build.SourcesDirectory) /onnxruntime_src
-            python3 -m pip uninstall -y ort-nightly-gpu ort-nightly onnxruntime onnxruntime-gpu -qq
-            cp $(Build.SourcesDirectory)/tools/ci_build/github/linux/docker/scripts/manylinux/requirements.txt $(Build.BinariesDirectory)/requirements.txt
-            # Test ORT with the latest ONNX release.
-            export ONNX_VERSION=$(cat $(Build.SourcesDirectory)/cmake/external/onnx/VERSION_NUMBER)
-            sed -i "s/git+http:\/\/github\.com\/onnx\/onnx.*/onnx==$ONNX_VERSION/" $(Build.BinariesDirectory)/requirements.txt
-            python3 -m pip install -r $(Build.BinariesDirectory)/requirements.txt
-            python3 -m pip install $(Build.BinariesDirectory)/Release/dist/*.whl
-            cd $(Build.BinariesDirectory)/Release
-            ls $(Build.BinariesDirectory)/models
-            rmdir $(Build.BinariesDirectory)/models
-            ln -sf /data/models $(Build.BinariesDirectory)
-            python3 $(Build.SourcesDirectory)/tools/ci_build/build.py \
-                  --build_dir $(Build.BinariesDirectory) \
-                  --config Release --test \
-                  --skip_submodule_sync \
-                  --parallel \
-                  --enable_lto \
-                  --build_wheel \
-                  --enable_onnx_tests \
-                  ${{ parameters.build_py_parameters }} \
-                  --ctest_path ''
   
       - task: CopyFiles@2
         displayName: 'Copy Python Wheel to: $(Build.ArtifactStagingDirectory)'
         inputs:
-          SourceFolder: '$(Build.BinariesDirectory)'
-          Contents: 'Release/dist/*.whl'
+          SourceFolder: '$(Build.BinariesDirectory)//$(BuildConfig)/dist'
+          Contents: '*.whl'
           TargetFolder: '$(Build.ArtifactStagingDirectory)'
-
-      - task: CmdLine@2
-        displayName: 'Build Python Documentation'
-        condition: and(succeeded(), ne(variables['PythonVersion'], '3.9'))  # tensorflow not available on python 3.9
-        inputs:
-          script: |
-            mkdir -p $HOME/.onnx
-            docker run --rm \
-              --volume /data/onnx:/data/onnx:ro \
-              --volume $(Build.SourcesDirectory):/onnxruntime_src \
-              --volume $(Build.BinariesDirectory):/build \
-              --volume /data/models:/build/models:ro \
-              --volume $HOME/.onnx:/home/onnxruntimedev/.onnx \
-              -e NIGHTLY_BUILD \
-              -e BUILD_BUILDNUMBER \
-              onnxruntimecpubuild \
-                bash -c " python3 -m pip install /build/Release/dist/*.whl && python3 -m onnxruntime.training.ortmodule.torch_cpp_extensions.install ; /onnxruntime_src/tools/doc/builddoc.sh python3 /onnxruntime_src /build Release " ;
-          workingDirectory: $(Build.SourcesDirectory)
-
-      - task: CopyFiles@2
-        displayName: 'Copy Python Documentation to: $(Build.ArtifactStagingDirectory)'
-        condition: and(succeeded(), ne(variables['PythonVersion'], '3.9'))  # tensorflow not available on python 3.9
-        inputs:
-          SourceFolder: '$(Build.BinariesDirectory)/docs/inference/html'
-          Contents: '**'
-          TargetFolder: '$(Build.ArtifactStagingDirectory)/inference_html_doc'
 
       - task: PublishBuildArtifacts@1
         displayName: 'Publish Artifact: ONNXRuntime python wheel and documentation'
