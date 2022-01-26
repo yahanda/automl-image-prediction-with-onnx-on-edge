@@ -8,7 +8,7 @@ RUN /tmp/scripts/install_ubuntu.sh -p ${PYTHON_VERSION} -d EdgeDevice && \
     /tmp/scripts/install_os_deps.sh -d EdgeDevice && \
     /tmp/scripts/install_python_deps.sh -p ${PYTHON_VERSION} -d EdgeDevice
 
-RUN apt update && apt install -y libnuma1 ocl-icd-libopencl1 wget && \
+RUN apt update && apt install -y libnuma1 ocl-icd-libopencl1 && \
     rm -rf /var/lib/apt/lists/* /tmp/scripts
 
 WORKDIR /root
