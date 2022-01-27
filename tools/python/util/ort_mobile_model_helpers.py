@@ -23,57 +23,9 @@ logging.basicConfig(format=FORMAT)
 logger = logging.getLogger('default')
 logger.setLevel(logging.INFO)
 
-
-def update_onnx_opset(model_path, opset):
-    """
-    Helper to update the opset of a model using onnx version_converter. Target opset must be greater than current opset.
-    Model is saved to the original location with the '.onnx' extension replaced with '.opset<opset>.onnx'.
-    :param model_path: Path to model to update
-    :param opset: Opset to update model to
-    """
-    from onnx import version_converter
-
-    logger.info("Updating %s to opset %d", model_path, opset)
-    model = onnx.load(model_path)
-    new_model = version_converter.convert_version(model, opset)
-    # save with .onnx -> .opsetX.onnx
-    onnx.save(new_model, str(pathlib.Path(model_path).with_suffix(f'.opset{opset}.onnx')))
-    logger.info("Saved updated model to %s", model_path)
+from .onnx_model_utils import update_onnx_opset, get_producer_consumer_maps
 
 
-def map_node_dependencies(graph: onnx.GraphProto):
-    # initializers = set()
-    producers = {}  # map of value to node that creates it.
-    node_to_producers = {}  # map of node instance to nodes producing input values it consumes
-    node_to_consumers = {}  # map of node instance to nodes consuming output values it produces
-
-    for node in graph.node:
-        # TODO add support for subgraphs by recursing into Graph attribute
-        # Neither NNAPI or CoreML EPs support currently so ignore for now
-        # for attr in node.attribute:
-        #     if attr.HasField('g'):
-        #        process_graph(attr.g, ...)
-
-        for i in node.input:
-            if i and i in producers:
-                # input is valid and is creatd by an upstream node
-
-                producer = producers[i]
-
-                if node not in node_to_producers:
-                    node_to_producers[node] = set()
-
-                if producer not in node_to_consumers:
-                    node_to_consumers[producer] = set()
-
-                # add entry mapping this node to the producer of this input
-                node_to_producers[node].add(producer)
-                node_to_consumers[producer].add(node)
-
-        for o in node.output:
-            producers[o] = node
-
-    return node_to_producers, node_to_consumers
 
 
 class SupportedOpsChecker:
