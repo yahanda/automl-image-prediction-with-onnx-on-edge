@@ -60,6 +60,12 @@ class _SupportedOpsChecker:
 
 
 def _is_fixed_size_tensor(value: onnx.ValueInfoProto):
+    '''
+    Check if value is a tensor with a fixed shape.
+    :param value: onnx.ValueInfoProto to check
+    :return: true if value is a tensor, with a shape, where all dimensions have fixed values.
+    '''
+
     is_fixed = False
     if value.type.HasField("tensor_type"):
         shape = value.type.tensor_type.shape
@@ -93,11 +99,12 @@ class PartitioningInfo:
         self.nodes_unsupported_due_to_dynamic_input = -1
 
     def suitability(self):
-        pct_supported = self.num_supported_nodes / self.num_nodes
-
         # semi-arbitrary choices that err on the side of MAYBE.
         # having 1 partition is always preferred, but if that is small it may not be useful.
         # having 2 partitions may be okay if they cover most nodes
+        # more than 2 partitions and the device copy cost is almost guaranteed to outweight the benefit of using the NPU
+        # NOTE: This assumes the EP is not CPU based and there is device copy overhead to consider
+        pct_supported = self.num_supported_nodes / self.num_nodes
         if self.num_partitions == 1:
             if pct_supported > 75:
                 return PartitioningInfo.TryWithEP.YES
@@ -161,8 +168,8 @@ class PartitioningInfo:
                         "This will most likely result in worse performance than just using the CPU EP.")
 
 
-def check_partitioning(graph: onnx.GraphProto, supported_ops_checker: _SupportedOpsChecker, ep_name: str,
-                       require_fixed_input_sizes: bool = False, value_info=None):
+def check_partitioning(graph: onnx.GraphProto, supported_ops_checker: _SupportedOpsChecker,
+                       require_fixed_input_sizes: bool = False, value_info: dict = None):
     '''
     Estimate the partitions the graph will be split into for nodes that is_node_supported_fn returns true for.
 
@@ -300,26 +307,27 @@ def check_partitioning(graph: onnx.GraphProto, supported_ops_checker: _Supported
     return info
 
 
-
-
-
-def check_nnapi_partitions(model, value_info=None):
-    logger.info('Checking NNAPI EP partitions...')
+def check_nnapi_partitions(model, value_info: dict=None):
+    # TODO adjust path based on whether this is running from the ORT python package or the repo
     supported_ops = _SupportedOpsChecker(r'D:\src\github\ort\tools\ci_build\github\android\nnapi_supported_ops.md')
+    partition_info = check_partitioning(model.graph, supported_ops, "NNAPI", value_info is not None, value_info)
 
-    check_partitioning(model.graph, supported_ops, "NNAPI", value_info is not None, value_info)
+    # TODO: we don't support control flow nodes in NNAPI yet. when we do we could print out partition info
+    # for the subgraphs. most likely the Scan/Loop/If will run with the CPU EP but the subgraph could be assigned to
+    # NNAPI
+    # for node in model.graph.node:
+    #     # recurse into subgraph for control flow nodes (Scan/Loop/If)
+    #     for attr in node.attribute:
+    #         if attr.HasField('g'):
+    #             check_partitioning(attr.g, supported_ops, "NNAPI", value_info is not None, value_info)
 
-    for node in model.graph.node:
-        # recurse into subgraph for control flow nodes (Scan/Loop/If)
-        for attr in node.attribute:
-            if attr.HasField('g'):
-                check_partitioning(attr.g, supported_ops, "NNAPI", value_info is not None, value_info)
+    return partition_info
 
-
-def check_coreml_partitions(model, value_info=None):
-    logger.info('Checking CoreML EP partitions...')
+def check_coreml_partitions(model, value_info: dict=None):
+    # TODO adjust path based on whether this is running from the ORT python package or the repo
     supported_ops = _SupportedOpsChecker(r'D:\src\github\ort\tools\ci_build\github\apple\coreml_supported_ops.md')
-    check_partitioning(model, supported_ops, "CoreML", value_info is not None, value_info)
+    partition_info = check_partitioning(model, supported_ops, "CoreML", value_info is not None, value_info)
+    return partition_info
 
 
 def check_shapes(graph: onnx.GraphProto, logger: logging.Logger = None):
@@ -386,7 +394,7 @@ def check_shapes(graph: onnx.GraphProto, logger: logging.Logger = None):
     return dynamic_inputs, num_dynamic_values
 
 
-def checker(model_path, logger):
+def checker(model_path, logger: logging.Logger):
     logger.info(f'Performing checks for {model_path}')
     model = onnx.load(model_path)
     model_with_shape_info = onnx.shape_inference.infer_shapes(model)
@@ -402,18 +410,31 @@ def checker(model_path, logger):
 
     has_dynamic_shapes = check_shapes(model_with_shape_info)
 
-    if has_dynamic_shapes:
-        make_dim_param_fixed(model_with_shape_info, "unk__610", 1)
-        has_dynamic_shapes = check_shapes(model_with_shape_info)
-        print(f'New value for has_dynamic_shapes={has_dynamic_shapes}')
+    # test of making the dim_param fixed
+    # if has_dynamic_shapes:
+    #     make_dim_param_fixed(model_with_shape_info, "unk__610", 1)
+    #     has_dynamic_shapes = check_shapes(model_with_shape_info)
+    #     print(f'New value for has_dynamic_shapes={has_dynamic_shapes}')
 
-    logger.info("Checking NNAPI and CoreML")
-    check_nnapi_partitions(model_with_shape_info)
+    def check_ep(ep_name, checker_func):
+        logger.info(f"Checking {ep_name}")
+
+        # check with shape info first
+        partition_info = checker_func(model_with_shape_info, value_to_shape)
+        if logger.getEffectiveLevel() <= logging.DEBUG:
+            # analyze and log detailed info
+            partition_info.analyze_info(logger, ep_name)
+
+        current_suitability = partition_info.suitability()
+        logger.info(f"Model should perform well with {ep_name} as is: {current_suitability.name}")
+        if current_suitability != PartitioningInfo.TryWithEP.YES and has_dynamic_shapes:
+            partition_info_with_fixed_shapes = check_nnapi_partitions(model_with_shape_info)
+            fixed_shape_suitability = partition_info_with_fixed_shapes.suitability()
+            logger.info(f"Model should perform well with {ep_name} if modified to have fixed input shapes: "
+                        f"{fixed_shape_suitability.name}")
+
+    check_ep("NNAPI", check_nnapi_partitions)
     check_coreml_partitions(model_with_shape_info)
-
-    logger.info("Checking NNAPI and CoreML with fixed shapes being required...")
-    check_nnapi_partitions(model_with_shape_info, value_to_shape)
-    check_coreml_partitions(model_with_shape_info, value_to_shape)
 
     logger.info('---------------\n')
 
