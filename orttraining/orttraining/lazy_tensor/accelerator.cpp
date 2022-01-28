@@ -232,14 +232,36 @@ c10::DeviceIndex create_torch_device_index(const OrtDevice::DeviceId& device_id)
   return static_cast<c10::DeviceIndex>(device_id);
 }
 
-at::Tensor create_at_tensor(const onnxruntime::Tensor& tensor) {
+//at::Tensor create_at_tensor_from_ort_value(OrtValue value)
+c10::IValue create_c10_ivalue_tensor(OrtValue value) {
+  onnxruntime::Tensor* tensor = value.GetMutable<onnxruntime::Tensor>();
+  const OrtDevice& device = tensor->Location().device;
+  auto options = torch::TensorOptions()
+    .dtype(create_torch_element_type(tensor->DataType()->AsPrimitiveDataType()))
+    .layout(torch::kStrided)
+    .device(create_torch_device_type(device.Type()), device.Type() == OrtDevice::CPU ? -1 : create_torch_device_index(device.Id()))
+    .requires_grad(false);
+
+  const auto num_dims = tensor->Shape().NumDimensions();
+  std::vector<int64_t> shape(num_dims);
+  tensor->Shape().CopyDims(shape.data(), num_dims);
+
+  at::Tensor new_tensor = torch::from_blob(
+    tensor->MutableDataRaw(),
+    shape,
+    [value] (void*) { },
+    options);
+
+  return c10::IValue(new_tensor);   
+}
+
+at::Tensor create_at_tensor(onnxruntime::Tensor& tensor) {
   const OrtDevice& device = tensor.Location().device;
   auto options = torch::TensorOptions()
     .dtype(create_torch_element_type(tensor.DataType()->AsPrimitiveDataType()))
     .layout(torch::kStrided)
-    .device(create_torch_device_type(device.Type()), create_torch_device_index(device.Id()))
+    .device(create_torch_device_type(device.Type()), device.Type() == OrtDevice::CPU ? -1 : create_torch_device_index(device.Id()))
     .requires_grad(false);
-
 
   const auto num_dims = tensor.Shape().NumDimensions();
   std::vector<int64_t> shape(num_dims);
@@ -247,18 +269,22 @@ at::Tensor create_at_tensor(const onnxruntime::Tensor& tensor) {
   at::Tensor new_tensor = torch::empty(shape, options);
 
   switch (device.Type()) {
-    case OrtDevice::CPU:
-      //auto tensor = torch::from_blob(
-      //  v.data(),
-      //  v.size(),
-      //  /*deleter=*/[&called](void* data) { called = true; },
-      //  torch::kInt32);
+    case OrtDevice::CPU: {
       std::memcpy(new_tensor.data_ptr(), tensor.DataRaw(), tensor.SizeInBytes());
+      // Create a at::Tensor from onnxruntime::Tensor.
+      // std::shared_ptr<onnxruntime::Tensor> ptr = std::make_shared<onnxruntime::Tensor>(std::move(tensor));
+      // new_tensor = torch::from_blob(
+      //   ptr->MutableDataRaw(),
+      //   shape,
+      //   [&ptr] (void*) { ptr.reset(); },
+      //   options);
       break;
+    }
     // TODO: Add GPU.
-    case OrtDevice::GPU:
+    case OrtDevice::GPU: {
       cudaMemcpy(new_tensor.data_ptr(), tensor.DataRaw(), tensor.SizeInBytes(), cudaMemcpyDeviceToDevice);
       break;
+    }
     default:
       ORT_THROW("Unsupport ORT device.");
   }
@@ -275,7 +301,7 @@ bool Accelerator::supported(const torch::jit::Node* node) {
     //case aten::gt:
     //case aten::eq:
     case prim::Constant:
-    case aten::threshold_backward:
+    //case aten::threshold_backward:
       std::cout << "[compiler.cc] Support " << *node;  //<< std::endl;
       return true;
     default:
@@ -368,7 +394,7 @@ static OrtDevice CheckAndGetTensorDevice(at::ArrayRef<c10::IValue>& values) {
   // This memory info must be shared by all tensors;
   // for example, all tensors on CPU or all on GPU 1.
   // When all values are not tensors, we assume CPU device.
-  c10::Device unique_tensor_device(c10::DeviceType::CPU, 0);
+  c10::Device unique_tensor_device(c10::DeviceType::CPU, -1);
   bool assigned = false;
   for (auto value : values) {
     if (!value.isTensor()) {
@@ -442,10 +468,11 @@ CompiledCode Accelerator::compile(
 
     std::vector<c10::IValue> outputs;
     for (auto value : fetches) {
-        onnxruntime::Tensor* tensor = value.GetMutable<onnxruntime::Tensor>();
-        std::cout << "ORT output device: " << tensor->Location().device.Type() << std::endl;
-        at::Tensor new_tensor = create_at_tensor(*tensor);
-        outputs.push_back(new_tensor);
+        outputs.push_back(std::move(create_c10_ivalue_tensor(value)));
+        //onnxruntime::Tensor* tensor = value.GetMutable<onnxruntime::Tensor>();
+        //std::cout << "ORT output device: " << tensor->Location().device.Type() << std::endl;
+        //at::Tensor new_tensor = create_at_tensor(*tensor);
+        //outputs.push_back(new_tensor);
     }
 
     return outputs;
