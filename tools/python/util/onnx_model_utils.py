@@ -68,13 +68,16 @@ def update_onnx_opset(model_path: pathlib.Path, opset: int, out_path: pathlib.Pa
 
 def optimize_model(model_path: pathlib.Path,
                    output_path: pathlib.Path = None,
-                   level: ort.GraphOptimizationLevel = ort.GraphOptimizationLevel.ORT_ENABLE_BASIC):
+                   level: ort.GraphOptimizationLevel = ort.GraphOptimizationLevel.ORT_ENABLE_BASIC,
+                   log_level: int = 3):
     '''
     Optimize an ONNX model using ONNX Runtime to the specified level
     :param model_path: Path to ONNX model
     :param output_path: Optional output path. If not specified the '.onnx' extention of model_path will be replaced
                         with '.optimized.onnx'.
     :param level: onnxruntime.GraphOptimizationLevel to use. Default is ORT_ENABLE_BASIC.
+    :param log_level: Log level. Defaults to Error (3) so we don't get output about unused initializers being removed.
+                      Warning (2) or Info (1) may be desirable in some scenarios.
     :return: output_path that was used.
     '''
 
@@ -84,6 +87,7 @@ def optimize_model(model_path: pathlib.Path,
     so = ort.SessionOptions()
     so.optimized_model_filepath = str(output_path)
     so.graph_optimization_level = ort.GraphOptimizationLevel.ORT_ENABLE_BASIC
+    so.log_severity_level = log_level
 
     # create session to optimize
     _ = ort.InferenceSession(str(model_path), so)

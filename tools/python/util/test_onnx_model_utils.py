@@ -1,4 +1,4 @@
-import unittest  # noqa
+import unittest
 from onnx import helper
 from onnx import TensorProto
 
