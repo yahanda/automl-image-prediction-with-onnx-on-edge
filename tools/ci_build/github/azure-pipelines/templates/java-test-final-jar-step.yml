@@ -27,8 +27,8 @@ parameters:
              jar xf $(Build.BinariesDirectory)/final-jar/testing.jar
              popd
              wget https://oss.sonatype.org/service/local/repositories/releases/content/org/junit/platform/junit-platform-console-standalone/1.6.2/junit-platform-console-standalone-1.6.2.jar -P ./
-             wget https://oss.sonatype.org/service/local/repositories/google-releases/content/com/google/protobuf/protobuf-java/3.9.2/protobuf-java-3.9.2.jar -P ./
-             java -jar ./junit-platform-console-standalone-1.6.2.jar -cp .;./test;./protobuf-java-3.9.2.jar;./onnxruntime-${{parameters.version}}.jar --scan-class-path --fail-if-no-tests --disable-banner
+             wget https://oss.sonatype.org/service/local/repositories/google-releases/content/com/google/protobuf/protobuf-java/3.16.1/protobuf-java-3.16.1.jar -P ./
+             java -jar ./junit-platform-console-standalone-1.6.2.jar -cp .;./test;./protobuf-java-3.16.1.jar;./onnxruntime-${{parameters.version}}.jar --scan-class-path --fail-if-no-tests --disable-banner
            workingDirectory: '$(Build.BinariesDirectory)/final-jar'
 
 - job: Test_Final_Jar_MacOs
@@ -52,8 +52,8 @@ parameters:
              jar xf $(Build.BinariesDirectory)/final-jar/testing.jar
              popd
              wget https://oss.sonatype.org/service/local/repositories/releases/content/org/junit/platform/junit-platform-console-standalone/1.6.2/junit-platform-console-standalone-1.6.2.jar -P ./
-             wget https://oss.sonatype.org/service/local/repositories/google-releases/content/com/google/protobuf/protobuf-java/3.9.2/protobuf-java-3.9.2.jar -P ./
-             java -jar ./junit-platform-console-standalone-1.6.2.jar -cp .;./test;./protobuf-java-3.9.2.jar;./onnxruntime-${{parameters.version}}.jar --scan-class-path --fail-if-no-tests --disable-banner
+             wget https://oss.sonatype.org/service/local/repositories/google-releases/content/com/google/protobuf/protobuf-java/3.16.1/protobuf-java-3.16.1.jar -P ./
+             java -jar ./junit-platform-console-standalone-1.6.2.jar -cp .;./test;./protobuf-java-3.16.1.jar;./onnxruntime-${{parameters.version}}.jar --scan-class-path --fail-if-no-tests --disable-banner
            workingDirectory: '$(Build.BinariesDirectory)/final-jar'
 
 - job: Test_Final_Jar_Windows
@@ -75,6 +75,6 @@ parameters:
              jar xf $(Build.BinariesDirectory)\final-jar\testing.jar
              popd
              powershell -Command "Invoke-WebRequest https://oss.sonatype.org/service/local/repositories/releases/content/org/junit/platform/junit-platform-console-standalone/1.6.2/junit-platform-console-standalone-1.6.2.jar -OutFile junit-platform-console-standalone-1.6.2.jar"
-             powershell -Command "Invoke-WebRequest https://oss.sonatype.org/service/local/repositories/google-releases/content/com/google/protobuf/protobuf-java/3.9.2/protobuf-java-3.9.2.jar -OutFile protobuf-java-3.9.2.jar"
-             java -jar junit-platform-console-standalone-1.6.2.jar -cp .;.\test;protobuf-java-3.9.2.jar;onnxruntime-${{parameters.version}}.jar --scan-class-path --fail-if-no-tests --disable-banner
+             powershell -Command "Invoke-WebRequest https://oss.sonatype.org/service/local/repositories/google-releases/content/com/google/protobuf/protobuf-java/3.16.1/protobuf-java-3.16.1.jar -OutFile protobuf-java-3.16.1.jar"
+             java -jar junit-platform-console-standalone-1.6.2.jar -cp .;.\test;protobuf-java-3.16.1.jar;onnxruntime-${{parameters.version}}.jar --scan-class-path --fail-if-no-tests --disable-banner
            workingDirectory: '$(Build.BinariesDirectory)\final-jar'
