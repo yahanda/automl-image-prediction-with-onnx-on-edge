@@ -1,14 +1,14 @@
 import argparse
 import logging
 import onnx
-import onnx.shape_inference
 import os
 import pathlib
 
 from collections import deque
 from enum import Enum
+from onnx import shape_inference
 from ..onnx_model_utils import get_producer_consumer_maps, optimize_model, \
-    iterate_graph_per_graph_func, iterate_graph_per_node_func
+    iterate_graph_per_graph_func, iterate_graph_per_node_func, is_fixed_size_tensor
 
 
 class _SupportedOpsChecker:
@@ -56,29 +56,6 @@ class _SupportedOpsChecker:
                 caveats.append(f'{op}:{caveat}')
 
         return caveats
-
-
-def _is_fixed_size_tensor(value: onnx.ValueInfoProto):
-    '''
-    Check if value is a tensor with a fixed shape.
-    :param value: onnx.ValueInfoProto to check
-    :return: true if value is a tensor, with a shape, where all dimensions have fixed values.
-    '''
-
-    is_fixed = False
-    if value.type.HasField("tensor_type"):
-        shape = value.type.tensor_type.shape
-        if shape:
-            is_fixed = True  # scalar has no dims so set to True and unset if we hit a dim without a valid value
-            for dim in shape.dim:
-                if dim.HasField('dim_value') and dim.dim_value > 0:
-                    continue
-
-                # anything else means it's a dynamic value
-                is_fixed = False
-                break
-
-    return is_fixed
 
 
 class PartitioningInfo:
@@ -214,7 +191,7 @@ def check_partitioning(graph: onnx.GraphProto, supported_ops_checker: _Supported
 
     def _is_fixed_shape_value(value):
         if value in value_info:
-            return _is_fixed_size_tensor(value_info[value])
+            return is_fixed_size_tensor(value_info[value])
         if value in initializers:
             return True
 
@@ -389,7 +366,7 @@ def check_shapes(graph: onnx.GraphProto, logger: logging.Logger = None):
 
     dynamic_inputs = []
     for i in graph.input:
-        if not _is_fixed_size_tensor(i):
+        if not is_fixed_size_tensor(i):
             dynamic_inputs.append(i)
             # split/join to remove repeated whitespace and newlines from str(i)
             if logger:
@@ -400,7 +377,7 @@ def check_shapes(graph: onnx.GraphProto, logger: logging.Logger = None):
 
     dynamic_outputs = []
     for o in graph.output:
-        if not _is_fixed_size_tensor(o):
+        if not is_fixed_size_tensor(o):
             dynamic_outputs.append(o)
             if logger:
                 logger.info(f"Output is not a fixed size tensor: {' '.join(str(o).split())}")
@@ -408,13 +385,15 @@ def check_shapes(graph: onnx.GraphProto, logger: logging.Logger = None):
         else:
             num_fixed_values += 1
 
-    # check we have value info. special case some test graphs with a single node which only have graph input and output
-    if not graph.value_info and len(graph.node) > 1:
+    # check we have value info.
+    # special case some test graphs with a single node which only have graph input and output values, and
+    # a model where all inputs are dynamic
+    if not graph.value_info and not (len(graph.node) == 1 or len(dynamic_inputs) == len(graph.input)):
         logger.warning("Unable to check shapes within model. "
                        "ONNX shape inferencing should be run on the model prior to checking.")
 
     for vi in graph.value_info:
-        if _is_fixed_size_tensor(vi):
+        if is_fixed_size_tensor(vi):
             num_fixed_values += 1
         else:
             num_dynamic_values += 1
@@ -455,7 +434,7 @@ def checker(model_path, logger: logging.Logger):
 
     # test of making the dim_param fixed
     # if has_dynamic_shapes:
-    #     make_dim_param_fixed(model_with_shape_info, "unk__610", 1)
+    #     make_dim_param_fixed(model_with_shape_info.graph, "unk__610", 1)
     #     has_dynamic_shapes = check_shapes(model_with_shape_info)
     #     print(f'New value for has_dynamic_shapes={has_dynamic_shapes}')
 

@@ -2,6 +2,7 @@ import logging
 import onnx
 import onnxruntime as ort
 import pathlib
+
 from onnx import version_converter
 
 
@@ -121,8 +122,39 @@ def _replace_symbolic_dim_value(graph: onnx.GraphProto, **kwargs):
     update_dim_values(graph.value_info)
 
 
-def make_dim_param_fixed(model: onnx.ModelProto, param_name: str, value: int):
-    iterate_graph_per_graph_func(model.graph, _replace_symbolic_dim_value, dim_param=param_name, value=value)
+def make_dim_param_fixed(graph: onnx.GraphProto, param_name: str, value: int):
+    iterate_graph_per_graph_func(graph, _replace_symbolic_dim_value, dim_param=param_name, value=value)
+
+
+def make_input_shape_fixed(graph: onnx.GraphProto, input_name, fixed_shape: [int]):
+    for i in graph.input:
+        if i.name == input_name:
+            if not i.type.HasField("tensor_type"):
+                raise ValueError(f'Input {input_name} is not a tensor')
+
+            # graph input are required to have a shape to provide the rank
+            shape = i.type.tensor_type.shape
+            if len(shape.dim) != len(fixed_shape):
+                raise ValueError(
+                    f'Rank mismatch. Existing:{len(shape.dim)} Replacement:{len(fixed_shape)}')
+
+            idx = 0
+            for dim in shape.dim:
+                # check any existing fixed dims match
+                if dim.HasField('dim_value'):
+                    if dim.dim_value != fixed_shape[idx]:
+                        raise ValueError(
+                            f"Can't replace existing fixed size of {dim.dim_value} with {fixed_shape[idx]} "
+                            f"for dimension {idx + 1}")
+                else:
+                    dim.Clear()
+                    dim.dim_value = fixed_shape[idx]
+
+                idx += 1
+            return
+
+    raise ValueError(f'Input {input_name} was not found in graph inputs. '
+                     f'Valid input names are: {",".join([i.name for i in graph.input])}')
 
 
 def _create_producer_consumer_link(node_to_producers: dict, node_to_consumers: dict,
@@ -211,3 +243,26 @@ def get_producer_consumer_maps(graph: onnx.GraphProto):
     assert(not implicit_inputs)
 
     return node_to_producers, node_to_consumers
+
+
+def is_fixed_size_tensor(value: onnx.ValueInfoProto):
+    '''
+    Check if value is a tensor with a fixed shape.
+    :param value: onnx.ValueInfoProto to check
+    :return: true if value is a tensor, with a shape, where all dimensions have fixed values.
+    '''
+
+    is_fixed = False
+    if value.type.HasField("tensor_type"):
+        shape = value.type.tensor_type.shape
+        if shape:
+            is_fixed = True  # scalar has no dims so set to True and unset if we hit a dim without a valid value
+            for dim in shape.dim:
+                if dim.HasField('dim_value') and dim.dim_value > 0:
+                    continue
+
+                # anything else means it's a dynamic value
+                is_fixed = False
+                break
+
+    return is_fixed

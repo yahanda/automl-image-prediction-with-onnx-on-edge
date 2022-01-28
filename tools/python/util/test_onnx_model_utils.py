@@ -1,12 +1,21 @@
+import onnx
+import pathlib
 import unittest
+
 from onnx import helper
+from onnx import shape_inference
 from onnx import TensorProto
 
-from .onnx_model_utils import get_producer_consumer_maps
+from .onnx_model_utils import get_producer_consumer_maps, make_dim_param_fixed, make_input_shape_fixed, \
+    is_fixed_size_tensor, iterate_graph_per_node_func
+
+from .mobile_helpers.usability_checker import check_shapes
+
+script_dir = pathlib.Path(__file__).parent
+ort_root = script_dir.parents[2]
 
 
 class TestGetProducerConsumerMaps(unittest.TestCase):
-
     @staticmethod
     def _create_model():
         body = helper.make_graph(
@@ -117,3 +126,74 @@ class TestGetProducerConsumerMaps(unittest.TestCase):
         check_linked(loop_add_shadow, loop_add_implicit_input)
         check_linked(loop_add_outer_scope_init, loop_add_subgraph_output)
         check_linked(loop_add_implicit_input, loop_add_subgraph_output)
+
+
+class TestDynamicDimReplacement(unittest.TestCase):
+    def test_replace_symbolic_dim(self):
+        '''
+        Update a model with a single symbolic input dimension. After replacement run shape inferencing to verify that
+        all shapes in the model have fixed sizes.
+        :return:
+        '''
+        model_path = ort_root / 'onnxruntime' / 'test' / 'testdata' / 'CNTK' / 'test_LSTM.tanh.bidirectional' \
+                     / 'model.onnx'
+
+        model = onnx.load_model(str(model_path))
+        dynamic_inputs, num_dynamic_values = check_shapes(model.graph)
+        self.assertEqual(len(dynamic_inputs), 1)
+        self.assertEqual(dynamic_inputs[0].name, 'Input3')
+        self.assertGreater(num_dynamic_values, 0)
+
+        make_dim_param_fixed(model.graph, 'None', 4)
+
+        model = shape_inference.infer_shapes(model, True)
+        dynamic_inputs, num_dynamic_values = check_shapes(model.graph)
+        self.assertFalse(dynamic_inputs)
+        self.assertEqual(num_dynamic_values, 0)
+
+    def test_replace_input_shape(self):
+        '''
+        Replace the entire shape for an input. This can be used when the model has inputs with unknown dimensions
+        i.e. the dimension has no value and no symbolic name so it's harder to replace.
+        '''
+        model_path = ort_root / 'onnxruntime' / 'test' / 'testdata' / 'gh_issue_9671.onnx'
+
+        model = onnx.load_model(str(model_path))
+        dynamic_inputs, num_dynamic_values = check_shapes(model.graph)
+        self.assertEqual(len(dynamic_inputs), 3)
+        self.assertEqual(dynamic_inputs[0].name, 'X1')
+        self.assertEqual(dynamic_inputs[1].name, 'X2')
+        self.assertEqual(dynamic_inputs[2].name, 'X3')
+        self.assertGreater(num_dynamic_values, 0)
+
+        make_input_shape_fixed(model.graph, 'X1', [2, 2, 4])
+        make_input_shape_fixed(model.graph, 'X2', [2, 4])
+        make_input_shape_fixed(model.graph, 'X3', [2, 2, 4])
+
+        # and validate the model no longer has dynamic values
+        model = shape_inference.infer_shapes(model, True)
+        dynamic_inputs, num_dynamic_values = check_shapes(model.graph)
+        self.assertFalse(dynamic_inputs)
+
+    def test_invalid_replace_input_shape(self):
+        '''
+        Replace the entire shape for an input. This can be used when the model has inputs with unknown dimensions
+        i.e. the dimension has no value and no symbolic name so it's harder to replace.
+        '''
+        model_path = ort_root / 'onnxruntime' / 'test' / 'testdata' / 'sklearn_bin_voting_classifier_soft.onnx'
+
+        model = onnx.load_model(str(model_path))
+        dynamic_inputs, num_dynamic_values = check_shapes(model.graph)
+        self.assertEqual(len(dynamic_inputs), 1)
+        self.assertEqual(dynamic_inputs[0].name, 'input')
+        self.assertGreater(num_dynamic_values, 0)
+
+        # first test some invalid usages
+        self.assertRaisesRegex(ValueError, "Rank mismatch. Existing:2 Replacement:3",
+                               make_input_shape_fixed, model.graph, 'input', [1, 2, 3])
+
+        self.assertRaisesRegex(ValueError, "Can't replace existing fixed size of 2 with 3 for dimension 2",
+                               make_input_shape_fixed, model.graph, 'input', [4, 3])
+
+        self.assertRaisesRegex(ValueError, "Input X1 was not found in graph inputs.",
+                               make_input_shape_fixed, model.graph, 'X1', [2, 3])

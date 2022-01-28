@@ -21,7 +21,6 @@ def _create_logger():
 
 
 class TestAnalyzer(unittest.TestCase):
-    @unittest.skip
     def test_mnist(self):
         '''
         Test MNIST which should be fully covered by both NNAPI and CoreML as is.
