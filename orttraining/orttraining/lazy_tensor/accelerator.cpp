@@ -3,6 +3,8 @@
 #include <stack>
 #include <iostream>
 #include <stdexcept>
+#include <cuda.h>
+#include <cuda_runtime.h>
 #include <torch/extension.h>
 #include <torch/torch.h>
 #include <torch/csrc/jit/resource_guard.h>
@@ -10,7 +12,6 @@
 #include <torch/csrc/jit/ir/constants.h>
 #include <torch/csrc/jit/passes/onnx.h>
 #include <ATen/core/functional.h>
-#include "gsl/gsl"
 #include "core/framework/session_options.h"
 #include "orttraining/core/session/training_session.h"
 #include "core/session/environment.h"
@@ -18,6 +19,7 @@
 #include "core/common/logging/sinks/clog_sink.h"
 #include "core/framework/ortdevice.h"
 #include "core/framework/ort_value.h"
+#include "python/onnxruntime_pybind_state_common.h"
 
 namespace py = pybind11;
 namespace aten = torch::jit::aten;
@@ -76,9 +78,18 @@ onnxruntime::MLDataType to_ort_scalar_type(
   }
 }
 
+OrtDevice::DeviceId create_ort_device_id(const c10::DeviceIndex device_id) {
+  if (device_id < 0) {
+    return 0;
+  } else {
+    return static_cast<OrtDevice::DeviceId>(device_id);
+  }
+};
+
+
 OrtDevice create_ort_device(const c10::DeviceType device_type, const c10::DeviceIndex device_id) {
     // Assume ID is the same in ORT and Pytorch.
-    OrtDevice::DeviceId ort_device_id = static_cast<OrtDevice::DeviceId>(device_id);
+    OrtDevice::DeviceId ort_device_id = create_ort_device_id(device_id);
     // Translate Pytorch device type to ORT device type.
     OrtDevice::DeviceType ort_device_type;
     switch (device_type) {
@@ -99,12 +110,12 @@ OrtDevice create_ort_device(const c10::DeviceType device_type, const c10::Device
     return OrtDevice(ort_device_type, OrtDevice::MemType::DEFAULT, ort_device_id);
 }
 
-
 OrtMemoryInfo create_ort_memory_info(const c10::Device device) {
     std::string ort_device_name = device.str();
-    OrtDevice ort_device = create_ort_device(device.type(), device.index());
+    const OrtDevice::DeviceId ort_device_id = create_ort_device_id(device.index());
+    OrtDevice ort_device = create_ort_device(device.type(), ort_device_id);
     return OrtMemoryInfo(
-        ort_device_name.c_str(), OrtAllocatorType::OrtDeviceAllocator, ort_device, ort_device.Id());
+        ort_device_name.c_str(), OrtAllocatorType::OrtDeviceAllocator, ort_device, ort_device_id);
 }
 
 OrtMemoryInfo create_ort_cpu_memory_info(const char* name) {
@@ -226,7 +237,7 @@ at::Tensor create_at_tensor(const onnxruntime::Tensor& tensor) {
   auto options = torch::TensorOptions()
     .dtype(create_torch_element_type(tensor.DataType()->AsPrimitiveDataType()))
     .layout(torch::kStrided)
-    .device(create_torch_device_type(device.Type()), create_torch_device_index(device.Type()))
+    .device(create_torch_device_type(device.Type()), create_torch_device_index(device.Id()))
     .requires_grad(false);
 
 
@@ -245,6 +256,9 @@ at::Tensor create_at_tensor(const onnxruntime::Tensor& tensor) {
       std::memcpy(new_tensor.data_ptr(), tensor.DataRaw(), tensor.SizeInBytes());
       break;
     // TODO: Add GPU.
+    case OrtDevice::GPU:
+      cudaMemcpy(new_tensor.data_ptr(), tensor.DataRaw(), tensor.SizeInBytes(), cudaMemcpyDeviceToDevice);
+      break;
     default:
       ORT_THROW("Unsupport ORT device.");
   }
@@ -284,7 +298,8 @@ void Accelerator::run(torch::jit::Stack& stack) {
   // do so now.
   torch::jit::CompleteArgumentSpec spec{false, at::ArrayRef<c10::IValue>(inputs)};
   if (cache_.find(spec) == cache_.end()) {
-    cache_[spec] = compile(inputs);
+    cache_[spec] = compile(spec, inputs);
+    //cached_sess_.emplace(spec, std::move(sess));
   }
 
   // Run the compiled function!
@@ -342,32 +357,77 @@ std::string Accelerator::export_to_onnx() {
   return result.cast<std::string>();
 }
 
+std::unique_ptr<onnxruntime::training::TrainingSession> Accelerator::create_session() {
+  static onnxruntime::Environment& pybind_default_env = GetLtcEnv();
+  static onnxruntime::SessionOptions sess_opts;
+  return std::make_unique<onnxruntime::training::TrainingSession>(sess_opts, pybind_default_env);
+}
+
+
+static OrtDevice CheckAndGetTensorDevice(at::ArrayRef<c10::IValue>& values) {
+  // This memory info must be shared by all tensors;
+  // for example, all tensors on CPU or all on GPU 1.
+  // When all values are not tensors, we assume CPU device.
+  c10::Device unique_tensor_device(c10::DeviceType::CPU, 0);
+  bool assigned = false;
+  for (auto value : values) {
+    if (!value.isTensor()) {
+      continue;
+    }
+    auto tensor = value.toTensor();
+    if (assigned) {
+      TORCH_CHECK(unique_tensor_device == tensor.device(),
+        "All tensors must be on the same device.");
+    } else {
+      unique_tensor_device = tensor.device();
+      assigned = true;
+    }
+  }
+  return create_ort_device(unique_tensor_device.type(), unique_tensor_device.index());
+}
+
 CompiledCode Accelerator::compile(
-    at::ArrayRef<c10::IValue>& inputs) {
+    torch::jit::CompleteArgumentSpec spec, at::ArrayRef<c10::IValue>& inputs) {
   check_inputs(inputs);
   propagate_input_types(inputs);
   std::string model_path = export_to_onnx();
+  cached_sess_.emplace(spec, create_session());
+  onnxruntime::training::TrainingSession& sess = *cached_sess_.at(spec);
+
+  OrtCUDAProviderOptions provider_options{};
+  provider_options.do_copy_in_default_stream = true;
+  auto factory = onnxruntime::CreateExecutionProviderFactory_Cuda(&provider_options);
+  ORT_THROW_IF_ERROR(sess.RegisterExecutionProvider(factory->CreateProvider()));
+
+  ORT_THROW_IF_ERROR(sess.Load(model_path));
+  ORT_THROW_IF_ERROR(sess.Initialize());
+
+  onnxruntime::RunOptions run_options;
+  std::vector<std::string> feed_names;
+  std::vector<std::string> fetch_names;
+
+  for (auto node_arg : *sess.GetModelInputs().second) {
+    feed_names.push_back(node_arg->Name());
+  }
+  for (auto node_arg : *sess.GetModelOutputs().second) {
+    fetch_names.push_back(node_arg->Name());
+  }
+
+  // Memory info for all tensors.
+  OrtDevice shared_device = CheckAndGetTensorDevice(inputs);
+  std::vector<OrtDevice> fetches_device_info(fetch_names.size(), shared_device);
 
   // This function wraps the function pointer we bound our assembly to
   // Adheres to the CompiledCode interface defined in compiler.h
-  auto compiled_func = [this, model_path](at::ArrayRef<c10::IValue>& inputs) {
-    onnxruntime::Environment& pybind_default_env = GetLtcEnv();
-    onnxruntime::SessionOptions sess_opts;
-
-    onnxruntime::training::TrainingSession sess(sess_opts, pybind_default_env);
-    //onnxruntime::InferenceSession sess(sess_opts, pybind_default_env);
-    ORT_THROW_IF_ERROR(sess.Load(model_path));
-    ORT_THROW_IF_ERROR(sess.Initialize());
-
-    onnxruntime::RunOptions run_options;
-    std::vector<std::string> feed_names;
+  auto compiled_func = [this, spec, run_options, feed_names, fetch_names, fetches_device_info](at::ArrayRef<c10::IValue>& inputs) {
+    onnxruntime::training::TrainingSession& sess = *cached_sess_.at(spec);
     std::vector<OrtValue> feeds;
-    std::vector<std::string> output_names;
     std::vector<OrtValue> fetches;
 
+    // LazyTensor backend assumes all tensors are on the same device.
+    OrtMemoryInfo tensor_memory_info;
     const auto num_inputs = subgraph_->inputs().size();
     for (size_t i = 0; i < num_inputs; ++i) {
-        feed_names.push_back(subgraph_->inputs().at(i)->debugName());
         if (subgraph_->inputs().at(i)->type()->kind() == c10::TypeKind::TensorType) {
           feeds.push_back(create_ort_tensor_value(inputs.at(i).toTensor()));
         } else {
@@ -375,24 +435,20 @@ CompiledCode Accelerator::compile(
           feeds.push_back(create_ort_scalar_value(inputs.at(i).toScalar()));
         }
     }
-    const auto num_outputs = subgraph_->outputs().size();
-    for (size_t i = 0; i < num_outputs; ++i) {
-        output_names.push_back(subgraph_->outputs().at(i)->debugName());
-    }
 
-    std::cout << "[accelerator.cpp] Run" << std::endl;
-    ORT_THROW_IF_ERROR(sess.Run(run_options, feed_names, feeds, output_names, &fetches));
-    std::cout << "[accelerator.cpp] Run done" << std::endl;
+    std::cout << "[accelerator.cpp] sess.Run" << std::endl;
+    ORT_THROW_IF_ERROR(sess.Run(run_options, feed_names, feeds, fetch_names, &fetches, &fetches_device_info));
+    std::cout << "[accelerator.cpp] sess.Run done" << std::endl;
 
     std::vector<c10::IValue> outputs;
     for (auto value : fetches) {
         onnxruntime::Tensor* tensor = value.GetMutable<onnxruntime::Tensor>();
+        std::cout << "ORT output device: " << tensor->Location().device.Type() << std::endl;
         at::Tensor new_tensor = create_at_tensor(*tensor);
         outputs.push_back(new_tensor);
     }
 
     return outputs;
-
   };
 
   return compiled_func;
