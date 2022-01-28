@@ -19,7 +19,7 @@
       {
         "component": {
           "Type": "maven",
-          "maven": { "GroupId": "com.google.protobuf", "ArtifactId": "protobuf-java", "Version": "3.16.1" },
+          "maven": { "GroupId": "com.google.protobuf", "ArtifactId": "protobuf-java", "Version": "3.19.3" },
           "DevelopmentDependency": true
         }
       },
