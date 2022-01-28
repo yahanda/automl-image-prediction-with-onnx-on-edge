@@ -10,6 +10,7 @@
 #include <torch/csrc/jit/ir/constants.h>
 #include <torch/csrc/jit/passes/onnx.h>
 #include <ATen/core/functional.h>
+#include "gsl/gsl"
 #include "core/framework/session_options.h"
 #include "orttraining/core/session/training_session.h"
 #include "core/session/environment.h"
@@ -250,86 +251,6 @@ at::Tensor create_at_tensor(const onnxruntime::Tensor& tensor) {
   return new_tensor;
 }
 
-//OrtValue create_ort_tensor_value() {
-//  OrtDevice device;
-//  float* data_ptr = new float[2];
-//  onnxruntime::TensorShape shape(std::vector<int64_t>{2});
-//  onnxruntime::MLDataType data_type = onnxruntime::DataTypeImpl::GetType<float>();
-//  OrtMemoryInfo info("CPU", OrtAllocatorType::OrtDeviceAllocator, device, device.Id());
-//  std::unique_ptr<onnxruntime::Tensor> p_tensor = std::make_unique<onnxruntime::Tensor>(
-//      data_type, shape,
-//      data_ptr, info);
-//
-//  OrtValue ort_value;
-//  std::function<void(void*)> deleter = [=](void* p) {
-//    delete[] data_ptr;
-//   onnxruntime::DataTypeImpl::GetType<onnxruntime::Tensor>()->GetDeleteFunc()(p);
-//  };
-//
-//  ort_value.Init(p_tensor.release(), onnxruntime::DataTypeImpl::GetType<onnxruntime::Tensor>(), deleter);
-//  return ort_value;
-//}
-//
-//template<typename T>
-//OrtValue to_ort_value(const at::Tensor& tensor) {
-//  auto shape = tensor.sizes().vec();
-//  auto device = to_ort_device(tensor.device());
-//  OrtDevice device;
-//  OrtMemoryInfo info("CPU", OrtAllocatorType::OrtDeviceAllocator, device, device.Id());
-//  std::unique_ptr<onnxruntime::Tensor> p_tensor = std::make_unique<onnxruntime::Tensor>(
-//      to_ort_scalar_type(tensor.scalar_type()), shape,
-//      tensor.data_ptr(), info);
-//
-//  OrtValue ort_value;
-//  std::function<void(void*)> deleter = [&](void* p) {
-//   std::cout << "Release at::Tensor's data_ptr " << tensor.data_ptr() << std::endl;
-//   onnxruntime::DataTypeImpl::GetType<onnxruntime::Tensor>()->GetDeleteFunc()(p);
-//  };
-//
-//  ort_value.Init(p_tensor.release(), onnxruntime::DataTypeImpl::GetType<onnxruntime::Tensor>(), deleter);
-//  return ort_value;
-//}
-//
-OrtValue create_2() {
-  OrtDevice device;
-  float* data_ptr = new float[2];
-  onnxruntime::TensorShape shape(std::vector<int64_t>{2});
-  onnxruntime::MLDataType data_type = onnxruntime::DataTypeImpl::GetType<float>();
-  OrtMemoryInfo info("CPU", OrtAllocatorType::OrtDeviceAllocator, device, device.Id());
-  std::unique_ptr<onnxruntime::Tensor> p_tensor = std::make_unique<onnxruntime::Tensor>(
-      data_type, shape,
-      data_ptr, info);
-
-  OrtValue ort_value;
-  std::function<void(void*)> deleter = [=](void* p) {
-    delete[] data_ptr;
-   onnxruntime::DataTypeImpl::GetType<onnxruntime::Tensor>()->GetDeleteFunc()(p);
-  };
-
-  ort_value.Init(p_tensor.release(), onnxruntime::DataTypeImpl::GetType<onnxruntime::Tensor>(), deleter);
-  return ort_value;
-}
-//
-//OrtValue create_ort_bool_tensor_value() {
-//  OrtDevice device;
-//  bool* data_ptr = new bool[2];
-//  onnxruntime::TensorShape shape(std::vector<int64_t>{2});
-//  onnxruntime::MLDataType data_type = onnxruntime::DataTypeImpl::GetType<bool>();
-//  OrtMemoryInfo info("CPU", OrtAllocatorType::OrtDeviceAllocator, device, device.Id());
-//  std::unique_ptr<onnxruntime::Tensor> p_tensor = std::make_unique<onnxruntime::Tensor>(
-//      data_type, shape,
-//      data_ptr, info);
-//
-//  OrtValue ort_value;
-//  std::function<void(void*)> deleter = [=](void* p) {
-//    delete[] data_ptr;
-//   onnxruntime::DataTypeImpl::GetType<onnxruntime::Tensor>()->GetDeleteFunc()(p);
-//  };
-//
-//  ort_value.Init(p_tensor.release(), onnxruntime::DataTypeImpl::GetType<onnxruntime::Tensor>(), deleter);
-//  return ort_value;
-//}
-
 bool Accelerator::supported(const torch::jit::Node* node) {
   switch (node->kind()) {
     //case aten::relu:
@@ -377,86 +298,55 @@ void Accelerator::run(torch::jit::Stack& stack) {
   }
 }
 
-CompiledCode Accelerator::compile(
-    at::ArrayRef<c10::IValue>& inputs) {
-  // First we run through some checks to make sure the inputs are Tensors and
-  // that the implied semantics are pointwise.
-
+void Accelerator::check_inputs(
+  const at::ArrayRef<c10::IValue>& inputs) {
+  // TODO: remove this check.
   TORCH_CHECK(inputs.size(), "Need at least one input.");
   for (const auto& input : inputs) {
     TORCH_CHECK(input.isTensor(), "Compiler can only handle Tensor inputs.");
   }
-  auto size = inputs[0].toTensor().numel();
-  for (const auto& input : inputs) {
-    TORCH_CHECK(
-        input.toTensor().numel() == size,
-        "Compiler can only handle pointwise operations without broadcasting.");
-  }
+}
 
-  //onnxruntime::Environment& pybind_default_env = GetLtcEnv();
-  //onnxruntime::SessionOptions sess_opts;
-  //onnxruntime::InferenceSession sess(sess_opts, pybind_default_env);
-  //std::string model_path;
-  //{
-  //  //const at::ArrayRef<torch::jit::Value*>& graph_inputs = subgraph_->inputs();
-  //  const auto num_inputs = subgraph_->inputs().size();
-  //  for (size_t i = 0; i < num_inputs; ++i) {
-  //      auto input_symbol = subgraph_->inputs()[i];
-  //      auto input_value = inputs[i];
-  //      input_symbol->setType(input_value.type());
-  //  }
-
-  //  std::cout << "[ext] gil_scoped_acquire" << std::endl;
-  //  pybind11::gil_scoped_acquire guard{};
-  //  std::cout << "[ext] create to_onnx" << std::endl;
-  //  pybind11::function to_onnx =
-  //      pybind11::reinterpret_borrow<pybind11::function>(   // cast from 'object' to 'function - use `borrow` (copy) or `steal` (move)
-  //          pybind11::module::import("torch.onnx.utils").attr("_optimize_graph_1")  // import method "min_rosen" from python "module"
-  //      );
-  //  std::cout << "[ext] print JIT graph in Python:" << std::endl;
-  //  pybind11::print(subgraph_);
-  //  std::cout << "[ext] call to_onnx" << std::endl;
-  //  auto result = to_onnx(subgraph_, ::torch::onnx::OperatorExportTypes::ONNX_ATEN_FALLBACK);
-  //  std::cout << "[ext] print ONNX graph:" << std::endl;
-  //  pybind11::print(subgraph_);
-
-  //  //std::stringstream ss;
-  //  //ss << "Oops-" << n;
-  //  //++n;
-  //  //Ort::SessionOptions sessionOptions;
-  //  //Ort::Session session(env, "/bert_ort/wechi/model_QI4C.onnx", sessionOptions);
-
-  //  ORT_THROW_IF_ERROR(sess.Load(result.cast<std::string>()));
-  //  ORT_THROW_IF_ERROR(sess.Initialize());
-  //  auto a = create_2();
-  //  // //auto b = create_ort_bool_tensor_value();
-
-  //  onnxruntime::RunOptions run_options;
-  //  std::vector<std::string> feed_names{"0"};
-  //  std::vector<OrtValue> feeds{a};
-  //  std::vector<std::string> output_names{"2", "1"};
-  //  std::vector<OrtValue> fetches;
-  //  std::cout << "[ORT] run sess" << std::endl;
-  //  ORT_THROW_IF_ERROR(sess.Run(run_options, feed_names, feeds, output_names, &fetches));
-  //  std::cout << "[ORT] run sess done" << std::endl;
-  //  model_path = result.cast<std::string>();
-  //}
-
-  //const at::ArrayRef<torch::jit::Value*>& graph_inputs = subgraph_->inputs();
+// Store input types in sub-graph so that
+// ONNX exporter can use them. Input types
+// are required when executing ONNX model
+// in ORT.
+// TODO: Allow ORT to accept models without
+// input types. Then, we can remove this function.
+void Accelerator::propagate_input_types(
+  const at::ArrayRef<c10::IValue>& inputs) {
+  TORCH_CHECK(subgraph_->inputs().size() == inputs.size(),
+    "Number of provided inputs must match captured sub-graph's schema.");
   const auto num_inputs = subgraph_->inputs().size();
   for (size_t i = 0; i < num_inputs; ++i) {
       auto input_symbol = subgraph_->inputs()[i];
       auto input_value = inputs[i];
       input_symbol->setType(input_value.type());
   }
+}
 
+// ONNX exporter is written in Python, so
+// this function may calls some Python functions.
+// Be aware of GIL issue.
+// The returned value is the path to exported
+// ONNX file.
+std::string Accelerator::export_to_onnx() {
   pybind11::gil_scoped_acquire guard{};
+  // Retrieve Python function.
   pybind11::function to_onnx =
-      pybind11::reinterpret_borrow<pybind11::function>(   // cast from 'object' to 'function - use `borrow` (copy) or `steal` (move)
-          pybind11::module::import("torch.onnx.utils").attr("_optimize_graph_1")  // import method "min_rosen" from python "module"
+      pybind11::reinterpret_borrow<pybind11::function>(
+          pybind11::module::import("torch.onnx.utils").attr("_optimize_graph_1")
       );
-  auto result = to_onnx(subgraph_, ::torch::onnx::OperatorExportTypes::ONNX_ATEN_FALLBACK);
-  std::string  model_path = result.cast<std::string>();
+  // Execute Python function.
+  auto result = to_onnx(subgraph_, ::torch::onnx::OperatorExportTypes::ONNX);
+  return result.cast<std::string>();
+}
+
+CompiledCode Accelerator::compile(
+    at::ArrayRef<c10::IValue>& inputs) {
+  check_inputs(inputs);
+  propagate_input_types(inputs);
+  std::string model_path = export_to_onnx();
 
   // This function wraps the function pointer we bound our assembly to
   // Adheres to the CompiledCode interface defined in compiler.h
@@ -503,79 +393,6 @@ CompiledCode Accelerator::compile(
 
     return outputs;
 
-    //// __value__ is the symbol of arena[__value__] tensor.
-    //std::map<torch::jit::Value*, c10::IValue> arena;
-    //for (auto value : subgraph_->inputs()) {
-    //  arena[value] = inputs[value->offset()];
-    //}
-
-    //for (auto node : subgraph_->nodes()) {
-    //  switch (node->kind()) {
-    //    case aten::relu: {
-    //      std::cout << "[compiler.cc] see aten::relu" << std::endl;
-    //      auto x = arena[node->inputs()[0]].toTensor().contiguous();
-    //      auto y = at::relu(x);
-    //      arena[node->outputs()[0]] = y;
-    //      break;
-    //    }
-    //    case aten::mul: {
-    //      std::cout << "[compiler.cc] see aten::mul" << std::endl;
-    //      auto x = arena[node->inputs()[0]].toTensor().contiguous();
-    //      auto y = arena[node->inputs()[1]].toTensor().contiguous();
-    //      auto z = at::mul(x, y);
-    //      arena[node->outputs()[0]] = z;
-    //      break;
-    //    }
-    //    case aten::gt: {
-    //      std::cout << "[compiler.cc] see aten::gt" << std::endl;
-    //      auto x = arena[node->inputs()[0]].toTensor().contiguous();
-    //      int y = arena[node->inputs()[1]].toInt();
-    //      arena[node->outputs()[0]] = at::gt(x, y);
-    //      break;
-    //    }
-    //    case aten::eq: {
-    //      std::cout << "[compiler.cc] see aten::eq" << std::endl;
-    //      auto x = arena[node->inputs()[0]].toTensor().contiguous();
-    //      auto y = arena[node->inputs()[0]].toTensor().contiguous();
-    //      auto z = at::eq(x, y);
-    //      arena[node->outputs()[0]] = z;
-    //      break;
-    //    }
-    //    case aten::type_as: {
-    //      std::cout << "[compiler.cc] see aten::type_as" << std::endl;
-    //      auto x = arena[node->inputs()[0]].toTensor().contiguous();
-    //      auto y = arena[node->inputs()[1]].toTensor();
-    //      auto z = x.to(y.options());
-    //      arena[node->outputs()[0]] = z;
-    //      break;
-    //    }
-    //    case prim::Constant: {
-    //      std::cout << "[compiler.cc] see prim::Constant" << std::endl;
-    //      arena[node->outputs()[0]] = torch::jit::toIValue(node->outputs()[0]).value();
-    //      break;
-    //    }
-    //    case aten::threshold_backward: {
-    //      std::cout << "[compiler.cc] see aten::threshold_backward" << std::endl;
-    //      auto x = arena[node->inputs()[0]].toTensor().contiguous();
-    //      auto y = arena[node->inputs()[1]].toTensor();
-    //      //auto z = arena[node->inputs()[2]].to<at::Scalar>();
-    //      auto z = arena[node->inputs()[2]].toTensor().contiguous();
-    //      auto z_data = z.data_ptr<int64_t>();
-    //      std::cout << "To call\n";
-    //      auto w = at::_ops::threshold_backward::call(x, y, at::Scalar(*z_data));
-    //      std::cout << "Done call\n";
-    //      arena[node->outputs()[0]] = w;
-    //      break;
-    //    }
-    //  }
-    //}
-
-    //std::vector<c10::IValue> outputs;
-    //for (auto value : subgraph_->outputs()) {
-    //  outputs.push_back(arena[value]);
-    //}
-
-    //return outputs;
   };
 
   return compiled_func;
