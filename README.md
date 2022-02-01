@@ -12,7 +12,7 @@ Make predictions with ONNX on computer vision models from AutoML on Azure IoT Ed
     ```
     cd automl-image-prediction-with-onnx-on-edge/dockerfiles
     sudo git submodule update --init
-    sudo docker build -t automlimageprediction -f Dockerfile.arm32v7 .
+    sudo docker build -t automlimageprediction -f Dockerfile.arm32v7 ..
     sudo docker tag automlimageprediction <your-container-registry>/automlimageprediction:<version>-arm32v7
     sudo docker push <your-container-registry>/automlimageprediction:<version>-arm32v7
     ```
