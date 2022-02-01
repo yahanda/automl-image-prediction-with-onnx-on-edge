@@ -1,5 +1,4 @@
 import logging
-import os
 import pathlib
 from testfixtures import LogCapture
 import unittest
@@ -103,5 +102,3 @@ class TestAnalyzer(unittest.TestCase):
                 ('default', 'INFO', 'Partition sizes: [4, 4, 7]'),
                 ('default', 'INFO', 'Model should perform well with CoreML as is: NO')
             )
-
-

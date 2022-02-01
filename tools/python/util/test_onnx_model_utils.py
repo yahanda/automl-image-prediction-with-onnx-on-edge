@@ -6,9 +6,7 @@ from onnx import helper
 from onnx import shape_inference
 from onnx import TensorProto
 
-from .onnx_model_utils import get_producer_consumer_maps, make_dim_param_fixed, make_input_shape_fixed, \
-    is_fixed_size_tensor, iterate_graph_per_node_func
-
+from .onnx_model_utils import get_producer_consumer_maps, make_dim_param_fixed, make_input_shape_fixed
 from .mobile_helpers.usability_checker import check_shapes
 
 script_dir = pathlib.Path(__file__).parent
@@ -135,8 +133,8 @@ class TestDynamicDimReplacement(unittest.TestCase):
         all shapes in the model have fixed sizes.
         :return:
         '''
-        model_path = ort_root / 'onnxruntime' / 'test' / 'testdata' / 'CNTK' / 'test_LSTM.tanh.bidirectional' \
-                     / 'model.onnx'
+        model_path = \
+            ort_root / 'onnxruntime' / 'test' / 'testdata' / 'CNTK' / 'test_LSTM.tanh.bidirectional' / 'model.onnx'
 
         model = onnx.load_model(str(model_path))
         dynamic_inputs, num_dynamic_values = check_shapes(model.graph)

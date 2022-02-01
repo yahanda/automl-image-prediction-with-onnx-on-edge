@@ -6,7 +6,6 @@ import pathlib
 
 from collections import deque
 from enum import Enum
-from onnx import shape_inference
 from ..onnx_model_utils import get_producer_consumer_maps, optimize_model, \
     iterate_graph_per_graph_func, iterate_graph_per_node_func, is_fixed_size_tensor
 
@@ -408,9 +407,9 @@ def check_shapes(graph: onnx.GraphProto, logger: logging.Logger = None):
                             "if NNAPI or CoreML can be used with this model.")
             else:
                 logger.info(
-                    '''Model has dynamically sized inputs but fixed sized outputs. 
-                       If the sizes become fixed early in the model (e.g. pre-processing of a dynamic input size 
-                       results in a fixed input size for the majority of the model) performance with NNAPI and CoreML, 
+                    '''Model has dynamically sized inputs but fixed sized outputs.
+                       If the sizes become fixed early in the model (e.g. pre-processing of a dynamic input size
+                       results in a fixed input size for the majority of the model) performance with NNAPI and CoreML,
                        if applicable, should not be significantly impacted.''')
 
     return dynamic_inputs, num_dynamic_values

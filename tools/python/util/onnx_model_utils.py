@@ -83,7 +83,7 @@ def optimize_model(model_path: pathlib.Path,
     '''
 
     if not output_path:
-        output_path = model_path.with_suffix(f'.optimized.onnx')
+        output_path = model_path.with_suffix('.optimized.onnx')
 
     so = ort.SessionOptions()
     so.optimized_model_filepath = str(output_path)
