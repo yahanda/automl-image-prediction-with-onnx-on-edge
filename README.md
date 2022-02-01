@@ -7,10 +7,10 @@ Make predictions with ONNX on computer vision models from AutoML on Azure IoT Ed
     ```
     git clone https://github.com/yahanda/automl-image-prediction-with-onnx-on-edge.git
     ```
-1. Download `model.onnx` and `labels.json` from an AutoML training run, and put them under the folder `<cloned-repository>/automl-image-prediction-with-onnx-on-edge/modules/automlimageprediction/`.
+1. Download `model.onnx` and `labels.json` from an AutoML training run, and put them under the folder `<cloned-repository>/automl-image-prediction-with-onnx-on-edge/app/`.
 1. Build and push docker image.
     ```
-    cd automl-image-prediction-with-onnx-on-edge/modules/automlimageprediction
+    cd automl-image-prediction-with-onnx-on-edge/dockerfiles
     sudo git submodule update --init
     sudo docker build -t automlimageprediction -f Dockerfile.arm32v7 .
     sudo docker tag automlimageprediction <your-container-registry>/automlimageprediction:<version>-arm32v7

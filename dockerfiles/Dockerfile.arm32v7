@@ -15,3 +15,14 @@ FROM arm64v8/centos:7
 COPY --from=0 /code/build/Linux/Release/dist /root
 COPY --from=0 /code/dockerfiles/LICENSE-IMAGE.txt /code/LICENSE-IMAGE.txt
 RUN yum install -y python3-wheel python3-pip && python3 -m pip install --upgrade pip && python3 -m pip install /root/*.whl && rm -rf /root/*.whl
+
+COPY app /app
+
+# Expose the port
+EXPOSE 80
+
+# Set the working directory
+WORKDIR /app
+
+# Run the flask server for the endpoints
+CMD python -u main.py
